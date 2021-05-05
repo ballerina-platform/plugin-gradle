@@ -5,7 +5,7 @@
 The Ballerina Gradle plugin is designed to work
 similar to the Java Gradle plugin. This adds ballerina project bundling functionalities along with testing.
 
-##Usage
+## Usage
 
 ```groovy
 plugins {
