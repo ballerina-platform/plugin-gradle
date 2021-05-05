@@ -39,13 +39,11 @@ class BallerinaPlugin implements Plugin<Project> {
         def packageOrg = "ballerina"
         def platform = "java11"
         def tomlVersion
-        def ballerinaConfigFile = new File("$project.projectDir/Ballerina.toml")
         def artifactBallerinaDocs = new File("$project.projectDir/build/docs_parent/")
         def artifactCacheParent = new File("$project.projectDir/build/cache_parent/")
         def artifactLibParent = new File("$project.projectDir/build/lib_parent/")
         def projectDirectory = new File("$project.projectDir")
         def ballerinaCentralAccessToken = System.getenv('BALLERINA_CENTRAL_ACCESS_TOKEN')
-        def originalConfig = ballerinaConfigFile.text
         def groupParams = ""
         def disableGroups = ""
         def debugParams = ""
@@ -113,21 +111,6 @@ class BallerinaPlugin implements Plugin<Project> {
                     from "${artifactExtractedPath}/cache"
                 }
 
-            }
-        }
-
-        project.tasks.register("updateTomlVersions"){
-            dependsOn(project.unpackJballerinaTools)
-            doLast {
-                def newConfig = ballerinaConfigFile.text.replace("@project.version@", project.version)
-                newConfig = newConfig.replace("@toml.version@", tomlVersion)
-                ballerinaConfigFile.text = newConfig
-            }
-        }
-
-        project.tasks.register("revertTomlFile"){
-            doLast {
-                ballerinaConfigFile.text = originalConfig
             }
         }
 
