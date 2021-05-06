@@ -1,0 +1,45 @@
+plugins {
+    id 'groovy'
+    id 'java-gradle-plugin'
+    id 'maven-publish'
+    id 'com.gradle.plugin-publish' version '0.14.0'
+}
+
+repositories {
+    mavenLocal()
+}
+
+dependencies {
+    compile     gradleApi()
+    testCompile gradleTestKit()
+}
+
+pluginBundle {
+    website = 'https://github.com/ballerina-platform/plugin-gradle'
+    vcsUrl = 'https://github.com/ballerina-platform/plugin-gradle.git'
+    tags = ['Ballerina', 'Plugin', 'Gradle']
+}
+
+gradlePlugin {
+    plugins {
+        BallerinaPlugin {
+            id = 'io.ballerina.plugin'
+            implementationClass = 'io.ballerina.plugin.BallerinaPlugin'
+            displayName = 'Ballerina Plugin'
+            description = 'A plugin for Ballerina projects'
+        }
+    }
+}
+
+publishing {
+    repositories {
+        maven {
+            name = 'localPluginRepository'
+            url = '../local-plugin-repository'
+        }
+    }
+}
+
+test {
+    useJUnitPlatform()
+}
