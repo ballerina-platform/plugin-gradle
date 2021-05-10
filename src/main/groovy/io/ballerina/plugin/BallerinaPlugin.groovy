@@ -177,8 +177,9 @@ class BallerinaPlugin implements Plugin<Project> {
         project.tasks.register("build"){
 
             finalizedBy(project.revertTomlFile)
-            dependsOn(project.updateTomlVersions)
             dependsOn(project.initializeVariables)
+            dependsOn(project.updateTomlVersions)
+            dependsOn(project.test)
 
             inputs.dir projectDirectory
             doLast {
@@ -276,7 +277,6 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.tasks.register("test"){
-            dependsOn(project.build)
         }
 
         project.tasks.register("clean", Delete.class){
