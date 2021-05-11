@@ -39,7 +39,7 @@ publishing {
         }
         maven {
             name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/rpjayasekara/plugin-gradle")
+            url = uri("https://maven.pkg.github.com/ballerina-platform/plugin-gradle")
             credentials {
                 username System.getenv("packageUser")
                 password System.getenv("packagePAT")
