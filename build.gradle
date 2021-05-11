@@ -37,6 +37,14 @@ publishing {
             name = 'localPluginRepository'
             url = '../local-plugin-repository'
         }
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/ballerina-platform/plugin-gradle")
+            credentials {
+                username System.getenv("packageUser")
+                password System.getenv("packagePAT")
+            }
+        }
     }
 }
 

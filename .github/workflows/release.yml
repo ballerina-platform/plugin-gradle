@@ -34,3 +34,12 @@ jobs:
         env:
           GRADLE_OPTS: "-Dorg.gradle.project.gradle.publish.key=${{ secrets.GRADLE_PLUGIN_KEY }} -Dorg.gradle.project.gradle.publish.secret=${{ secrets.GRADLE_PLUGIN_SECRET }}"
         run: "./gradlew publishPlugins"
+      - name: "Github package publish"
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.project.gradle.publish.key=${{ secrets.GRADLE_PLUGIN_KEY }} -Dorg.gradle.project.gradle.publish.secret=${{ secrets.GRADLE_PLUGIN_SECRET }}"
+        run: "./gradlew publishPlugins"
+      - name: "Github packages publish"
+        env:
+          packageUser: ${{ secrets.USERNAME }}
+          packagePAT: ${{ secrets.TOKEN }}
+        run: "./gradlew publish"
