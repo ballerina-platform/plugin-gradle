@@ -40,6 +40,6 @@ jobs:
         run: "./gradlew publishPlugins"
       - name: "Github packages publish"
         env:
-          packageUser: ${{ secrets.USERNAME }}
-          packagePAT: ${{ secrets.TOKEN }}
+          packageUser: ${{ secrets.BALLERINA_BOT_USERNAME }}
+          packagePAT: ${{ secrets.BALLERINA_BOT_TOKEN }}
         run: "./gradlew publish"
