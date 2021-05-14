@@ -66,6 +66,7 @@ class BallerinaPlugin implements Plugin<Project> {
         def debugParams = ""
         def balJavaDebugParam = ""
         def testParams = ""
+        def testCoverageParam = ""
         def needSeparateTest = false
         def needBuildWithTest = false
         def needPublishToCentral = false
@@ -84,7 +85,7 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.tasks.register("copyToLib", Copy.class){
-            into "$project.projectDir/lib"
+            into "$project.projectDir/build/libs"
             from project.configurations.externalJars
         }
 
@@ -165,9 +166,9 @@ class BallerinaPlugin implements Plugin<Project> {
                 } else {
                     needSeparateTest = true
                 }
-
                 if (graph.hasTask(":${packageName}-ballerina:test")) {
-                    testParams = "--code-coverage --includes=*"
+                    testParams = "--code-coverage --jacoco-xml --includes=org.ballerinalang.stdlib.${packageName}.*:ballerina.${packageName}.*"
+                    testCoverageParam = testParams
                 } else {
                     testParams = "--skip-tests"
                 }
@@ -176,26 +177,16 @@ class BallerinaPlugin implements Plugin<Project> {
 
         project.tasks.register("build"){
 
-            finalizedBy(project.revertTomlFile)
             dependsOn(project.initializeVariables)
             dependsOn(project.updateTomlVersions)
+            finalizedBy(project.revertTomlFile)
             dependsOn(project.test)
 
             inputs.dir projectDirectory
             doLast {
                 String distributionBinPath = project.projectDir.absolutePath + "/build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-${project.extensions.ballerina.langVersion}/bin"
                 String packageName = project.extensions.ballerina.module
-                if (needSeparateTest) {
-                    project.exec {
-                        workingDir project.projectDir
-                        environment "JAVA_OPTS", "-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true"
-                        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "${balJavaDebugParam} ${distributionBinPath}/bal.bat test --code-coverage --includes=* ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
-                        } else {
-                            commandLine 'sh', '-c', "${balJavaDebugParam} ${distributionBinPath}/bal test --code-coverage --includes=* ${groupParams} ${disableGroups} ${debugParams}"
-                        }
-                    }
-                } else if (needBuildWithTest) {
+                if (needBuildWithTest) {
                     project.exec {
                         workingDir project.projectDir
                         environment "JAVA_OPTS", "-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true"
@@ -277,6 +268,24 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.tasks.register("test"){
+            dependsOn(project.initializeVariables)
+            dependsOn(project.updateTomlVersions)
+            finalizedBy(project.revertTomlFile)
+            doLast {
+                if(needSeparateTest){
+                    String distributionBinPath = project.projectDir.absolutePath + "/build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-${project.extensions.ballerina.langVersion}/bin"
+                    String packageName = project.extensions.ballerina.module
+                    project.exec {
+                        workingDir project.projectDir
+                        environment "JAVA_OPTS", "-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true"
+                        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                            commandLine 'cmd', '/c', "${balJavaDebugParam} ${distributionBinPath}/bal.bat test ${testCoverageParam} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
+                        } else {
+                            commandLine 'sh', '-c', "${balJavaDebugParam} ${distributionBinPath}/bal test ${testCoverageParam} ${groupParams} ${disableGroups} ${debugParams}"
+                        }
+                    }
+                }
+            }
         }
 
         project.tasks.register("clean", Delete.class){
