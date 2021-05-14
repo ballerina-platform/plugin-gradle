@@ -85,7 +85,7 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.tasks.register("copyToLib", Copy.class){
-            into "$project.projectDir/build/libs"
+            into "$project.projectDir/lib"
             from project.configurations.externalJars
         }
 
