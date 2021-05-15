@@ -28,6 +28,7 @@ import org.gradle.api.tasks.bundling.Zip
 class BallerinaExtension {
     String module
     String langVersion
+    String testCoverageParam
 }
 
 class BallerinaPlugin implements Plugin<Project> {
@@ -167,8 +168,14 @@ class BallerinaPlugin implements Plugin<Project> {
                     needSeparateTest = true
                 }
                 if (graph.hasTask(":${packageName}-ballerina:test")) {
-                    testParams = "--code-coverage --jacoco-xml --includes=org.ballerinalang.stdlib.${packageName}.*:ballerina.${packageName}.*"
-                    testCoverageParam = testParams
+                    if(project.extensions.ballerina.testCoverageParam==null){
+                        testParams = "--code-coverage --jacoco-xml --includes=org.ballerinalang.stdlib.${packageName}.*:ballerina.${packageName}.*"
+                        testCoverageParam = testParams
+                    }
+                    else{
+                        testParams = project.extensions.ballerina.testCoverageParam
+                        testCoverageParam = testParams
+                    }
                 } else {
                     testParams = "--skip-tests"
                 }
