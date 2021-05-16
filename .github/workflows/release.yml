@@ -16,6 +16,9 @@ jobs:
         with:
           java-version: 11
       - name: Github Packages Publish
+        env:
+          packageUser: ${{ secrets.BALLERINA_BOT_USERNAME }}
+          packagePAT: ${{ secrets.BALLERINA_BOT_TOKEN }}
         run: ./gradlew publish
 #      - name: Gradle publish
 #        env:
