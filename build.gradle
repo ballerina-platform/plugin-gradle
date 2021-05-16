@@ -34,10 +34,6 @@ gradlePlugin {
 publishing {
     repositories {
         maven {
-            name = 'localPluginRepository'
-            url = '../local-plugin-repository'
-        }
-        maven {
             name = "GitHubPackages"
             url = uri("https://maven.pkg.github.com/ballerina-platform/plugin-gradle")
             credentials {
@@ -51,3 +47,6 @@ publishing {
 test {
     useJUnitPlatform()
 }
+
+publishToMavenLocal.dependsOn build
+publish.dependsOn build
