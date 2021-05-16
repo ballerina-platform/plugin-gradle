@@ -29,6 +29,7 @@ class BallerinaExtension {
     String module
     String langVersion
     String testCoverageParam
+    String packageOrganization
 }
 
 class BallerinaPlugin implements Plugin<Project> {
@@ -54,7 +55,6 @@ class BallerinaPlugin implements Plugin<Project> {
             }
         }
 
-        def packageOrg = "ballerina"
         def platform = "java11"
         def tomlVersion
         def artifactBallerinaDocs = new File("$project.projectDir/build/docs_parent/")
@@ -67,11 +67,11 @@ class BallerinaPlugin implements Plugin<Project> {
         def debugParams = ""
         def balJavaDebugParam = ""
         def testParams = ""
-        def testCoverageParam = ""
         def needSeparateTest = false
         def needBuildWithTest = false
         def needPublishToCentral = false
         def needPublishToLocalCentral = false
+        def packageOrg = ""
 
         if (project.version.matches(project.ext.timestampedVersionRegex)) {
             def splitVersion = project.version.split('-');
@@ -170,11 +170,9 @@ class BallerinaPlugin implements Plugin<Project> {
                 if (graph.hasTask(":${packageName}-ballerina:test")) {
                     if(project.extensions.ballerina.testCoverageParam==null){
                         testParams = "--code-coverage --jacoco-xml --includes=org.ballerinalang.stdlib.${packageName}.*:ballerina.${packageName}.*"
-                        testCoverageParam = testParams
                     }
                     else{
                         testParams = project.extensions.ballerina.testCoverageParam
-                        testCoverageParam = testParams
                     }
                 } else {
                     testParams = "--skip-tests"
@@ -193,6 +191,12 @@ class BallerinaPlugin implements Plugin<Project> {
             doLast {
                 String distributionBinPath = project.projectDir.absolutePath + "/build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-${project.extensions.ballerina.langVersion}/bin"
                 String packageName = project.extensions.ballerina.module
+
+                if(project.extensions.ballerina.packageOrganization==null){
+                    packageOrg = "ballerina"
+                }else{
+                    packageOrg = project.extensions.ballerina.packageOrganization
+                }
                 if (needBuildWithTest) {
                     project.exec {
                         workingDir project.projectDir
@@ -286,9 +290,9 @@ class BallerinaPlugin implements Plugin<Project> {
                         workingDir project.projectDir
                         environment "JAVA_OPTS", "-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true"
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "${balJavaDebugParam} ${distributionBinPath}/bal.bat test ${testCoverageParam} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
+                            commandLine 'cmd', '/c', "${balJavaDebugParam} ${distributionBinPath}/bal.bat test ${testParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
                         } else {
-                            commandLine 'sh', '-c', "${balJavaDebugParam} ${distributionBinPath}/bal test ${testCoverageParam} ${groupParams} ${disableGroups} ${debugParams}"
+                            commandLine 'sh', '-c', "${balJavaDebugParam} ${distributionBinPath}/bal test ${testParams} ${groupParams} ${disableGroups} ${debugParams}"
                         }
                     }
                 }
