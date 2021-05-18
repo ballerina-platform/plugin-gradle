@@ -183,8 +183,8 @@ class BallerinaPlugin implements Plugin<Project> {
         project.tasks.register("build"){
 
             dependsOn(project.initializeVariables)
-            dependsOn(project.updateTomlVersions)
-            finalizedBy(project.revertTomlFile)
+            dependsOn(project.updateTomlFiles)
+            finalizedBy(project.revertTomlFiles)
             dependsOn(project.test)
 
             inputs.dir projectDirectory
@@ -237,6 +237,7 @@ class BallerinaPlugin implements Plugin<Project> {
                     if (needPublishToCentral) {
                         if (project.version.endsWith('-SNAPSHOT') ||
                                 project.version.matches(project.ext.timestampedVersionRegex)) {
+                            println("The project version is SNAPSHOT or Timestamped SNAPSHOT, not publishing to central.")
                             return
                         }
                         if (ballerinaCentralAccessToken != null) {
@@ -280,8 +281,8 @@ class BallerinaPlugin implements Plugin<Project> {
 
         project.tasks.register("test"){
             dependsOn(project.initializeVariables)
-            dependsOn(project.updateTomlVersions)
-            finalizedBy(project.revertTomlFile)
+            dependsOn(project.updateTomlFiles)
+            finalizedBy(project.revertTomlFiles)
             doLast {
                 if(needSeparateTest){
                     String distributionBinPath = project.projectDir.absolutePath + "/build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-${project.extensions.ballerina.langVersion}/bin"
