@@ -237,6 +237,7 @@ class BallerinaPlugin implements Plugin<Project> {
                     if (needPublishToCentral) {
                         if (project.version.endsWith('-SNAPSHOT') ||
                                 project.version.matches(project.ext.timestampedVersionRegex)) {
+                            println("The project version is SNAPSHOT or Timestamped SNAPSHOT, not publishing to central.")
                             return
                         }
                         if (ballerinaCentralAccessToken != null) {
