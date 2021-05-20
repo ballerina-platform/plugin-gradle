@@ -168,7 +168,7 @@ class BallerinaPlugin implements Plugin<Project> {
                 }
                 if (graph.hasTask(":${packageName}-ballerina:test")) {
                     if (project.extensions.ballerina.testCoverageParam == null) {
-                        testParams = "--code-coverage --coverage-format=xml --includes=org.ballerinalang.stdlib.${packageName}.*:ballerina.${packageName}.*"
+                        testParams = "--code-coverage --coverage-format=xml --includes=org.ballerinalang.stdlib.${packageName}.*:${packageOrg}.${packageName}.*"
                     } else {
                         testParams = project.extensions.ballerina.testCoverageParam
                     }
