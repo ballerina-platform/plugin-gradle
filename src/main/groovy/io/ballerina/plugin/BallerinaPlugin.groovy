@@ -26,55 +26,62 @@ import org.gradle.api.tasks.Delete
 import org.gradle.api.tasks.bundling.Zip
 
 class BallerinaExtension {
+
     String module
     String langVersion
     String testCoverageParam
     String packageOrganization
+
 }
 
 class BallerinaPlugin implements Plugin<Project> {
 
     @Override
     void apply(Project project) {
-
-        project.extensions.create("ballerina", BallerinaExtension)
+        project.extensions.create('ballerina', BallerinaExtension)
 
         project.configurations {
             jbalTools
         }
 
         project.dependencies {
-            if(project.extensions.ballerina.langVersion==null){
-                jbalTools ("org.ballerinalang:jballerina-tools:${project.ballerinaLangVersion}") {
+            if (project.extensions.ballerina.langVersion == null) {
+                jbalTools("org.ballerinalang:jballerina-tools:${project.ballerinaLangVersion}") {
                     transitive = false
                 }
-            }else{
-                jbalTools ("org.ballerinalang:jballerina-tools:${project.extensions.ballerina.langVersion}") {
+            } else {
+                jbalTools("org.ballerinalang:jballerina-tools:${project.extensions.ballerina.langVersion}") {
                     transitive = false
                 }
             }
         }
 
-        def platform = "java11"
+        def platform = 'java11'
         def tomlVersion
         def artifactBallerinaDocs = new File("$project.projectDir/build/docs_parent/")
         def artifactCacheParent = new File("$project.projectDir/build/cache_parent/")
         def artifactLibParent = new File("$project.projectDir/build/lib_parent/")
         def projectDirectory = new File("$project.projectDir")
         def ballerinaCentralAccessToken = System.getenv('BALLERINA_CENTRAL_ACCESS_TOKEN')
-        def groupParams = ""
-        def disableGroups = ""
-        def debugParams = ""
-        def balJavaDebugParam = ""
-        def testParams = ""
+        def groupParams = ''
+        def disableGroups = ''
+        def debugParams = ''
+        def balJavaDebugParam = ''
+        def testParams = ''
         def needSeparateTest = false
         def needBuildWithTest = false
         def needPublishToCentral = false
         def needPublishToLocalCentral = false
-        def packageOrg = ""
+        def packageOrg = ''
+
+        if (project.extensions.ballerina.packageOrganization == null) {
+            packageOrg = 'ballerina'
+        } else {
+            packageOrg = project.extensions.ballerina.packageOrganization
+        }
 
         if (project.version.matches(project.ext.timestampedVersionRegex)) {
-            def splitVersion = project.version.split('-');
+            def splitVersion = project.version.split('-')
             if (splitVersion.length > 3) {
                 def strippedValues = splitVersion[0..-4]
                 tomlVersion = strippedValues.join('-')
@@ -82,77 +89,75 @@ class BallerinaPlugin implements Plugin<Project> {
                 tomlVersion = project.version
             }
         } else {
-            tomlVersion = project.version.replace("${project.ext.snapshotVersion}", "")
+            tomlVersion = project.version.replace("${project.ext.snapshotVersion}", '')
         }
 
-        project.tasks.register("copyToLib", Copy.class){
+        project.tasks.register('copyToLib', Copy.class) {
             into "$project.projectDir/lib"
             from project.configurations.externalJars
         }
 
-        project.tasks.register("unpackJballerinaTools", Copy.class){
+        project.tasks.register('unpackJballerinaTools', Copy.class) {
             String module = project.extensions.ballerina.module
-            project.configurations.each {configuration ->
-                if(configuration.toString().equals("configuration ':"+module+"-ballerina:externalJars'")){
+            project.configurations.each { configuration ->
+                if (configuration.toString().equals("configuration ':" + module + "-ballerina:externalJars'")) {
                     dependsOn(project.copyToLib)
                 }
             }
             project.configurations.jbalTools.resolvedConfiguration.resolvedArtifacts.each { artifact ->
                 from project.zipTree(artifact.getFile())
-                into new File("${project.buildDir}/target/extracted-distributions", "jballerina-tools-zip")
+                into new File("${project.buildDir}/target/extracted-distributions", 'jballerina-tools-zip')
             }
         }
 
-        project.tasks.register("unpackStdLibs"){
+        project.tasks.register('unpackStdLibs') {
             dependsOn(project.unpackJballerinaTools)
             doLast {
                 project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
                     project.copy {
                         from project.zipTree(artifact.getFile())
-                        into new File("${project.buildDir}/target/extracted-distributions", artifact.name + "-zip")
+                        into new File("${project.buildDir}/target/extracted-distributions", artifact.name + '-zip')
                     }
                 }
             }
         }
 
-        project.tasks.register("copyStdlibs", Copy.class){
+        project.tasks.register('copyStdlibs', Copy.class) {
             dependsOn(project.unpackStdLibs)
             def ballerinaDist = "build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-${project.ballerinaLangVersion}"
             into ballerinaDist
 
             /* Standard Libraries */
             project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-                def artifactExtractedPath = "${project.buildDir}/target/extracted-distributions/" + artifact.name + "-zip"
-                into("repo/bala") {
+                def artifactExtractedPath = "${project.buildDir}/target/extracted-distributions/" + artifact.name + '-zip'
+                into('repo/bala') {
                     from "${artifactExtractedPath}/bala"
                 }
-                into("repo/cache") {
+                into('repo/cache') {
                     from "${artifactExtractedPath}/cache"
                 }
-
             }
         }
 
-        project.tasks.register("initializeVariables"){
-
+        project.tasks.register('initializeVariables') {
             String packageName = project.extensions.ballerina.module
 
-            if (project.hasProperty("groups")) {
-                groupParams = "--groups ${project.findProperty("groups")}"
+            if (project.hasProperty('groups')) {
+                groupParams = "--groups ${project.findProperty('groups')}"
             }
-            if (project.hasProperty("disable")) {
-                disableGroups = "--disable-groups ${project.findProperty("disable")}"
+            if (project.hasProperty('disable')) {
+                disableGroups = "--disable-groups ${project.findProperty('disable')}"
             }
-            if (project.hasProperty("debug")) {
-                debugParams = "--debug ${project.findProperty("debug")}"
+            if (project.hasProperty('debug')) {
+                debugParams = "--debug ${project.findProperty('debug')}"
             }
-            if (project.hasProperty("balJavaDebug")) {
-                balJavaDebugParam = "BAL_JAVA_DEBUG=${project.findProperty("balJavaDebug")}"
+            if (project.hasProperty('balJavaDebug')) {
+                balJavaDebugParam = "BAL_JAVA_DEBUG=${project.findProperty('balJavaDebug')}"
             }
-            if (project.hasProperty("publishToLocalCentral") && (project.findProperty("publishToLocalCentral") == "true")) {
+            if (project.hasProperty('publishToLocalCentral') && (project.findProperty('publishToLocalCentral') == 'true')) {
                 needPublishToLocalCentral = true
             }
-            if (project.hasProperty("publishToCentral") && (project.findProperty("publishToCentral") == "true")) {
+            if (project.hasProperty('publishToCentral') && (project.findProperty('publishToCentral') == 'true')) {
                 needPublishToCentral = true
             }
 
@@ -168,20 +173,18 @@ class BallerinaPlugin implements Plugin<Project> {
                     needSeparateTest = true
                 }
                 if (graph.hasTask(":${packageName}-ballerina:test")) {
-                    if(project.extensions.ballerina.testCoverageParam==null){
-                        testParams = "--code-coverage --coverage-format=xml --includes=org.ballerinalang.stdlib.${packageName}.*:ballerina.${packageName}.*"
-                    }
-                    else{
+                    if (project.extensions.ballerina.testCoverageParam == null) {
+                        testParams = "--code-coverage --coverage-format=xml --includes=org.ballerinalang.stdlib.${packageName}.*:${packageOrg}.${packageName}.*"
+                    } else {
                         testParams = project.extensions.ballerina.testCoverageParam
                     }
                 } else {
-                    testParams = "--skip-tests"
+                    testParams = '--skip-tests'
                 }
             }
         }
 
-        project.tasks.register("build"){
-
+        project.tasks.register('build') {
             dependsOn(project.initializeVariables)
             dependsOn(project.updateTomlFiles)
             finalizedBy(project.revertTomlFiles)
@@ -192,15 +195,10 @@ class BallerinaPlugin implements Plugin<Project> {
                 String distributionBinPath = project.projectDir.absolutePath + "/build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-${project.extensions.ballerina.langVersion}/bin"
                 String packageName = project.extensions.ballerina.module
 
-                if(project.extensions.ballerina.packageOrganization==null){
-                    packageOrg = "ballerina"
-                }else{
-                    packageOrg = project.extensions.ballerina.packageOrganization
-                }
                 if (needBuildWithTest) {
                     project.exec {
                         workingDir project.projectDir
-                        environment "JAVA_OPTS", "-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true"
+                        environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                             commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat build -c ${testParams} ${debugParams} && exit %%ERRORLEVEL%%"
                         } else {
@@ -223,7 +221,7 @@ class BallerinaPlugin implements Plugin<Project> {
                     // Doc creation and packing
                     project.exec {
                         workingDir project.projectDir
-                        environment "JAVA_OPTS", "-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true"
+                        environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                             commandLine 'cmd', '/c', "$distributionBinPath/bal.bat doc && exit %%ERRORLEVEL%%"
                         } else {
@@ -237,14 +235,14 @@ class BallerinaPlugin implements Plugin<Project> {
                     if (needPublishToCentral) {
                         if (project.version.endsWith('-SNAPSHOT') ||
                                 project.version.matches(project.ext.timestampedVersionRegex)) {
-                            println("The project version is SNAPSHOT or Timestamped SNAPSHOT, not publishing to central.")
+                            println('The project version is SNAPSHOT or Timestamped SNAPSHOT, not publishing to central.')
                             return
                         }
                         if (ballerinaCentralAccessToken != null) {
-                            println("Publishing to the ballerina central...")
+                            println('Publishing to the ballerina central...')
                             project.exec {
                                 workingDir project.projectDir
-                                environment "JAVA_OPTS", "-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true"
+                                environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                                 if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                                     commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push && exit %%ERRORLEVEL%%"
                                 } else {
@@ -252,13 +250,13 @@ class BallerinaPlugin implements Plugin<Project> {
                                 }
                             }
                         } else {
-                            throw new InvalidUserDataException("Central Access Token is not present")
+                            throw new InvalidUserDataException('Central Access Token is not present')
                         }
                     } else if (needPublishToLocalCentral) {
-                        println("Publishing to the ballerina local central repository..")
+                        println('Publishing to the ballerina local central repository..')
                         project.exec {
                             workingDir project.projectDir
-                            environment "JAVA_OPTS", "-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true"
+                            environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                                 commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push && exit %%ERRORLEVEL%% --repository=local"
                             } else {
@@ -274,22 +272,22 @@ class BallerinaPlugin implements Plugin<Project> {
             outputs.dir artifactLibParent
         }
 
-        project.tasks.register("createArtifactZip", Zip.class){
+        project.tasks.register('createArtifactZip', Zip.class) {
             destinationDirectory = new File("$project.buildDir/distributions")
             from project.build
         }
 
-        project.tasks.register("test"){
+        project.tasks.register('test') {
             dependsOn(project.initializeVariables)
             dependsOn(project.updateTomlFiles)
             finalizedBy(project.revertTomlFiles)
             doLast {
-                if(needSeparateTest){
+                if (needSeparateTest) {
                     String distributionBinPath = project.projectDir.absolutePath + "/build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-${project.extensions.ballerina.langVersion}/bin"
                     String packageName = project.extensions.ballerina.module
                     project.exec {
                         workingDir project.projectDir
-                        environment "JAVA_OPTS", "-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true"
+                        environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                             commandLine 'cmd', '/c', "${balJavaDebugParam} ${distributionBinPath}/bal.bat test ${testParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
                         } else {
@@ -300,10 +298,10 @@ class BallerinaPlugin implements Plugin<Project> {
             }
         }
 
-        project.tasks.register("clean", Delete.class){
+        project.tasks.register('clean', Delete.class) {
             delete "$project.projectDir/target"
             delete "$project.projectDir/build"
         }
-
     }
+
 }
