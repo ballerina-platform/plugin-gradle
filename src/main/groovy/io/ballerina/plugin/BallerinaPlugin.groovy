@@ -74,6 +74,12 @@ class BallerinaPlugin implements Plugin<Project> {
         def needPublishToLocalCentral = false
         def packageOrg = ''
 
+        if (project.extensions.ballerina.packageOrganization == null) {
+            packageOrg = 'ballerina'
+        } else {
+            packageOrg = project.extensions.ballerina.packageOrganization
+        }
+
         if (project.version.matches(project.ext.timestampedVersionRegex)) {
             def splitVersion = project.version.split('-')
             if (splitVersion.length > 3) {
@@ -189,11 +195,6 @@ class BallerinaPlugin implements Plugin<Project> {
                 String distributionBinPath = project.projectDir.absolutePath + "/build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-${project.extensions.ballerina.langVersion}/bin"
                 String packageName = project.extensions.ballerina.module
 
-                if (project.extensions.ballerina.packageOrganization == null) {
-                    packageOrg = 'ballerina'
-                } else {
-                    packageOrg = project.extensions.ballerina.packageOrganization
-                }
                 if (needBuildWithTest) {
                     project.exec {
                         workingDir project.projectDir
