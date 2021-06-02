@@ -98,9 +98,8 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.tasks.register('unpackJballerinaTools', Copy.class) {
-            String module = project.extensions.ballerina.module
             project.configurations.each { configuration ->
-                if (configuration.toString().equals("configuration ':" + module + "-ballerina:externalJars'")) {
+                if (configuration.name == "externalJars")) {
                     dependsOn(project.copyToLib)
                 }
             }
