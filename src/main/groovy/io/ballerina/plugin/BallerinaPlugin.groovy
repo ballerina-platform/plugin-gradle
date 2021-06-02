@@ -159,9 +159,6 @@ class BallerinaPlugin implements Plugin<Project> {
                         graph.hasTask(":${packageName}-ballerina:publishToMavenLocal")) {
                     needSeparateTest = false
                     needBuildWithTest = true
-                    if (graph.hasTask(":${packageName}-ballerina:publish")) {
-                        needPublishToCentral = true
-                    }
                 } else {
                     needSeparateTest = true
                 }
