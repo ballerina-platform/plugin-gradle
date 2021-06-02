@@ -99,7 +99,7 @@ class BallerinaPlugin implements Plugin<Project> {
 
         project.tasks.register('unpackJballerinaTools', Copy.class) {
             project.configurations.each { configuration ->
-                if (configuration.name == "externalJars")) {
+                if (configuration.name == "externalJars") {
                     dependsOn(project.copyToLib)
                 }
             }
