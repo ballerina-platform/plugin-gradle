@@ -163,8 +163,13 @@ class BallerinaPlugin implements Plugin<Project> {
             project.gradle.taskGraph.whenReady { graph ->
                 if (graph.hasTask(":${packageName}-ballerina:build") || graph.hasTask(":${packageName}-ballerina:publish") ||
                         graph.hasTask(":${packageName}-ballerina:publishToMavenLocal")) {
-                    needSeparateTest = false
-                    needBuildWithTest = true
+                    if (project.hasProperty('groups')) {
+                        needSeparateTest = true
+                    }
+                    else {
+                        needSeparateTest = false
+                        needBuildWithTest = true
+                    }
                     if (graph.hasTask(":${packageName}-ballerina:publish")) {
                         needPublishToCentral = true
                     }
