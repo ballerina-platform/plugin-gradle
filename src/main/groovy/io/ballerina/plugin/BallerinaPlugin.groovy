@@ -74,12 +74,6 @@ class BallerinaPlugin implements Plugin<Project> {
         def needPublishToLocalCentral = false
         def packageOrg = ''
 
-        if (project.extensions.ballerina.packageOrganization == null) {
-            packageOrg = 'ballerina'
-        } else {
-            packageOrg = project.extensions.ballerina.packageOrganization
-        }
-
         if (project.version.matches(project.ext.timestampedVersionRegex)) {
             def splitVersion = project.version.split('-')
             if (splitVersion.length > 3) {
@@ -178,7 +172,7 @@ class BallerinaPlugin implements Plugin<Project> {
                 }
                 if (graph.hasTask(":${packageName}-ballerina:test")) {
                     if (project.extensions.ballerina.testCoverageParam == null) {
-                        testParams = "--code-coverage --coverage-format=xml --includes=org.ballerinalang.stdlib.${packageName}.*:${packageOrg}.${packageName}.*"
+                        testParams = "--code-coverage --coverage-format=xml --includes=org.ballerinalang.stdlib.${packageName}.*:ballerina.${packageName}.*"
                     } else {
                         testParams = project.extensions.ballerina.testCoverageParam
                     }
@@ -199,6 +193,11 @@ class BallerinaPlugin implements Plugin<Project> {
                 String distributionBinPath = project.projectDir.absolutePath + "/build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-${project.extensions.ballerina.langVersion}/bin"
                 String packageName = project.extensions.ballerina.module
 
+                if (project.extensions.ballerina.packageOrganization == null) {
+                    packageOrg = 'ballerina'
+                } else {
+                    packageOrg = project.extensions.ballerina.packageOrganization
+                }
                 if (needBuildWithTest) {
                     project.exec {
                         workingDir project.projectDir
