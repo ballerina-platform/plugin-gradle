@@ -58,7 +58,6 @@ class BallerinaPlugin implements Plugin<Project> {
 
         def platform = 'java11'
         def tomlVersion
-        def artifactBallerinaDocs = new File("$project.projectDir/build/docs_parent/")
         def artifactCacheParent = new File("$project.projectDir/build/cache_parent/")
         def artifactLibParent = new File("$project.projectDir/build/lib_parent/")
         def projectDirectory = new File("$project.projectDir")
@@ -213,20 +212,6 @@ class BallerinaPlugin implements Plugin<Project> {
                         exclude '**/tests_cache/'
                         into new File("$artifactCacheParent/cache/")
                     }
-                    // Doc creation and packing
-                    project.exec {
-                        workingDir project.projectDir
-                        environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "$distributionBinPath/bal.bat doc && exit %%ERRORLEVEL%%"
-                        } else {
-                            commandLine 'sh', '-c', "$distributionBinPath/bal doc"
-                        }
-                    }
-                    project.copy {
-                        from new File("$project.projectDir/target/apidocs/${packageName}")
-                        into new File("$project.projectDir/build/docs_parent/docs/${packageName}")
-                    }
                     if (needPublishToCentral) {
                         if (project.version.endsWith('-SNAPSHOT') ||
                                 project.version.matches(project.ext.timestampedVersionRegex)) {
@@ -263,7 +248,6 @@ class BallerinaPlugin implements Plugin<Project> {
             }
 
             outputs.dir artifactCacheParent
-            outputs.dir artifactBallerinaDocs
             outputs.dir artifactLibParent
         }
 
