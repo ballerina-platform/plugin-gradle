@@ -36,7 +36,7 @@ jobs:
       - name: Github Release and Release Sync PR
         env:
           GITHUB_TOKEN: ${{ secrets.BALLERINA_BOT_TOKEN }}
-        run:
+        run: |
           gh release create v$VERSION --title "plugin-gradle-v$VERSION"
           gh pr create --base main --title "[Automated] Sync main after $VERSION release" --body "Sync main after $VERSION release"
 #      - name: Gradle publish
