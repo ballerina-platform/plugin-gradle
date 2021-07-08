@@ -11,8 +11,8 @@ repositories {
 }
 
 dependencies {
-    compile     gradleApi()
-    testCompile gradleTestKit()
+    implementation    gradleApi()
+    testImplementation gradleTestKit()
 }
 
 pluginBundle {
