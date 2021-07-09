@@ -133,6 +133,12 @@ class BallerinaPlugin implements Plugin<Project> {
 
         project.tasks.register('initializeVariables') {
             String packageName = project.extensions.ballerina.module
+            String organisation
+            if (project.extensions.ballerina.packageOrganization == null) {
+                organisation = 'ballerina'
+            } else {
+                organisation = project.extensions.ballerina.packageOrganization
+            }
 
             if (project.hasProperty('groups')) {
                 groupParams = "--groups ${project.findProperty('groups')}"
@@ -163,7 +169,7 @@ class BallerinaPlugin implements Plugin<Project> {
                 }
                 if (graph.hasTask(":${packageName}-ballerina:test")) {
                     if (project.extensions.ballerina.testCoverageParam == null) {
-                        testParams = "--code-coverage --coverage-format=xml --includes=io.ballerina.stdlib.${packageName}.*:ballerina.${packageName}.*"
+                        testParams = "--code-coverage --coverage-format=xml --includes=io.ballerina.stdlib.${packageName}.*:${organisation}.${packageName}.*"
                     } else {
                         testParams = project.extensions.ballerina.testCoverageParam
                     }
