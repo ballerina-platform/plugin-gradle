@@ -85,9 +85,13 @@ class BallerinaPlugin implements Plugin<Project> {
             tomlVersion = project.version.replace("${project.ext.snapshotVersion}", '')
         }
 
-        project.tasks.register('copyToLib', Copy.class) {
-            into "$project.projectDir/lib"
-            from project.configurations.externalJars
+        project.configurations.each { configuration ->
+            if (configuration.name == "externalJars") {
+                project.tasks.register('copyToLib', Copy.class) {
+                    into "$project.projectDir/lib"
+                    from configuration
+                }
+            }
         }
 
         project.tasks.register('unpackJballerinaTools', Copy.class) {
@@ -105,10 +109,14 @@ class BallerinaPlugin implements Plugin<Project> {
         project.tasks.register('unpackStdLibs') {
             dependsOn(project.unpackJballerinaTools)
             doLast {
-                project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-                    project.copy {
-                        from project.zipTree(artifact.getFile())
-                        into new File("${project.buildDir}/target/extracted-distributions", artifact.name + '-zip')
+                project.configurations.each { configuration ->
+                    if (configuration.name == "ballerinaStdLibs") {
+                        configuration.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                            project.copy {
+                                from project.zipTree(artifact.getFile())
+                                into new File("${project.buildDir}/target/extracted-distributions", artifact.name + '-zip')
+                            }
+                        }
                     }
                 }
             }
@@ -119,14 +127,17 @@ class BallerinaPlugin implements Plugin<Project> {
             def ballerinaDist = "build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-${project.ballerinaLangVersion}"
             into ballerinaDist
 
-            /* Standard Libraries */
-            project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-                def artifactExtractedPath = "${project.buildDir}/target/extracted-distributions/" + artifact.name + '-zip'
-                into('repo/bala') {
-                    from "${artifactExtractedPath}/bala"
-                }
-                into('repo/cache') {
-                    from "${artifactExtractedPath}/cache"
+            project.configurations.each { configuration ->
+                if (configuration.name == "ballerinaStdLibs") {
+                    configuration.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                        def artifactExtractedPath = "${project.buildDir}/target/extracted-distributions/" + artifact.name + '-zip'
+                        into('repo/bala') {
+                            from "${artifactExtractedPath}/bala"
+                        }
+                        into('repo/cache') {
+                            from "${artifactExtractedPath}/cache"
+                        }
+                    }
                 }
             }
         }
