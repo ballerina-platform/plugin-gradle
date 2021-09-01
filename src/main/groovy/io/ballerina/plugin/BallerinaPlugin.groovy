@@ -214,12 +214,6 @@ class BallerinaPlugin implements Plugin<Project> {
                             into new File("$artifactCacheParent/bala/${packageOrg}/${packageName}/${tomlVersion}/${platform}")
                         }
                     }
-                    project.copy {
-                        from new File("$project.projectDir/target/cache")
-                        exclude '**/*-testable.jar'
-                        exclude '**/tests_cache/'
-                        into new File("$artifactCacheParent/cache/")
-                    }
                     if (needPublishToCentral) {
                         if (project.version.endsWith('-SNAPSHOT') ||
                                 project.version.matches(project.ext.timestampedVersionRegex)) {
