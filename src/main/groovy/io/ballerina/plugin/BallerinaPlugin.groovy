@@ -207,43 +207,53 @@ class BallerinaPlugin implements Plugin<Project> {
                             commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal build -c ${testParams} ${debugParams}"
                         }
                     }
-                    // extract bala file to artifact cache directory
-                    new File("$project.projectDir/target/bala").eachFileMatch(~/.*.bala/) { balaFile ->
-                        project.copy {
-                            from project.zipTree(balaFile)
-                            into new File("$artifactCacheParent/bala/${packageOrg}/${packageName}/${tomlVersion}/${platform}")
+                } else {
+                    project.exec {
+                        workingDir project.projectDir
+                        environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
+                        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                            commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat build -c -x test && exit %%ERRORLEVEL%%"
+                        } else {
+                            commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal build -c -x test"
                         }
                     }
-                    if (needPublishToCentral) {
-                        if (project.version.endsWith('-SNAPSHOT') ||
-                                project.version.matches(project.ext.timestampedVersionRegex)) {
-                            println('The project version is SNAPSHOT or Timestamped SNAPSHOT, not publishing to central.')
-                            return
-                        }
-                        if (ballerinaCentralAccessToken != null) {
-                            println('Publishing to the ballerina central...')
-                            project.exec {
-                                workingDir project.projectDir
-                                environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                                if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                    commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push && exit %%ERRORLEVEL%%"
-                                } else {
-                                    commandLine 'sh', '-c', "$distributionBinPath/bal push"
-                                }
-                            }
-                        } else {
-                            throw new InvalidUserDataException('Central Access Token is not present')
-                        }
-                    } else if (needPublishToLocalCentral) {
-                        println('Publishing to the ballerina local central repository..')
+                }
+                // extract bala file to artifact cache directory
+                new File("$project.projectDir/target/bala").eachFileMatch(~/.*.bala/) { balaFile ->
+                    project.copy {
+                        from project.zipTree(balaFile)
+                        into new File("$artifactCacheParent/bala/${packageOrg}/${packageName}/${tomlVersion}/${platform}")
+                    }
+                }
+                if (needPublishToCentral) {
+                    if (project.version.endsWith('-SNAPSHOT') ||
+                            project.version.matches(project.ext.timestampedVersionRegex)) {
+                        println('The project version is SNAPSHOT or Timestamped SNAPSHOT, not publishing to central.')
+                        return
+                    }
+                    if (ballerinaCentralAccessToken != null) {
+                        println('Publishing to the ballerina central...')
                         project.exec {
                             workingDir project.projectDir
                             environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push && exit %%ERRORLEVEL%% --repository=local"
+                                commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push && exit %%ERRORLEVEL%%"
                             } else {
-                                commandLine 'sh', '-c', "$distributionBinPath/bal push --repository=local"
+                                commandLine 'sh', '-c', "$distributionBinPath/bal push"
                             }
+                        }
+                    } else {
+                        throw new InvalidUserDataException('Central Access Token is not present')
+                    }
+                } else if (needPublishToLocalCentral) {
+                    println('Publishing to the ballerina local central repository..')
+                    project.exec {
+                        workingDir project.projectDir
+                        environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
+                        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                            commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push && exit %%ERRORLEVEL%% --repository=local"
+                        } else {
+                            commandLine 'sh', '-c', "$distributionBinPath/bal push --repository=local"
                         }
                     }
                 }
