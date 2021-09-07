@@ -73,7 +73,7 @@ class BallerinaPlugin implements Plugin<Project> {
         def needPublishToLocalCentral = false
         def packageOrg = ''
 
-        if(project.extensions.ballerina.tomlVersion != null) {
+        if (project.extensions.ballerina.tomlVersion != null) {
             tomlVersion = project.extensions.ballerina.tomlVersion
         } else {
             if (project.version.matches(project.ext.timestampedVersionRegex)) {
