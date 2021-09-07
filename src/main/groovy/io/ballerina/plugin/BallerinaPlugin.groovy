@@ -31,7 +31,7 @@ class BallerinaExtension {
     String langVersion
     String testCoverageParam
     String packageOrganization
-
+    String customTomlVersion
 }
 
 class BallerinaPlugin implements Plugin<Project> {
@@ -191,6 +191,12 @@ class BallerinaPlugin implements Plugin<Project> {
             doLast {
                 String distributionBinPath = project.projectDir.absolutePath + "/build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-${project.extensions.ballerina.langVersion}/bin"
                 String packageName = project.extensions.ballerina.module
+                String balaVersion
+                if (project.extensions.ballerina.customTomlVersion == null) {
+                    balaVersion = tomlVersion
+                } else {
+                    balaVersion = project.extensions.ballerina.customTomlVersion
+                }
 
                 if (project.extensions.ballerina.packageOrganization == null) {
                     packageOrg = 'ballerina'
@@ -211,7 +217,7 @@ class BallerinaPlugin implements Plugin<Project> {
                     new File("$project.projectDir/target/bala").eachFileMatch(~/.*.bala/) { balaFile ->
                         project.copy {
                             from project.zipTree(balaFile)
-                            into new File("$artifactCacheParent/bala/${packageOrg}/${packageName}/${tomlVersion}/${platform}")
+                            into new File("$artifactCacheParent/bala/${packageOrg}/${packageName}/${balaVersion}/${platform}")
                         }
                     }
                     if (needPublishToCentral) {
