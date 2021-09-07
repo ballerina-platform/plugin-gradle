@@ -31,7 +31,7 @@ class BallerinaExtension {
     String langVersion
     String testCoverageParam
     String packageOrganization
-    String tomlVersion
+
 }
 
 class BallerinaPlugin implements Plugin<Project> {
@@ -73,20 +73,16 @@ class BallerinaPlugin implements Plugin<Project> {
         def needPublishToLocalCentral = false
         def packageOrg = ''
 
-        if (project.extensions.ballerina.tomlVersion != null) {
-            tomlVersion = project.extensions.ballerina.tomlVersion
-        } else {
-            if (project.version.matches(project.ext.timestampedVersionRegex)) {
-                def splitVersion = project.version.split('-')
-                if (splitVersion.length > 3) {
-                    def strippedValues = splitVersion[0..-4]
-                    tomlVersion = strippedValues.join('-')
-                } else {
-                    tomlVersion = project.version
-                }
+        if (project.version.matches(project.ext.timestampedVersionRegex)) {
+            def splitVersion = project.version.split('-')
+            if (splitVersion.length > 3) {
+                def strippedValues = splitVersion[0..-4]
+                tomlVersion = strippedValues.join('-')
             } else {
-                tomlVersion = project.version.replace("${project.ext.snapshotVersion}", '')
+                tomlVersion = project.version
             }
+        } else {
+            tomlVersion = project.version.replace("${project.ext.snapshotVersion}", '')
         }
 
         project.tasks.register('copyToLib', Copy.class) {
