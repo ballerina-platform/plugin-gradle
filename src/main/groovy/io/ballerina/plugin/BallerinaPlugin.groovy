@@ -184,7 +184,7 @@ class BallerinaPlugin implements Plugin<Project> {
         project.tasks.register('build') {
             dependsOn(project.initializeVariables)
             dependsOn(project.updateTomlFiles)
-            finalizedBy(project.revertTomlFiles)
+            finalizedBy(project.commitTomlFiles)
             dependsOn(project.test)
 
             inputs.dir projectDirectory
@@ -267,7 +267,7 @@ class BallerinaPlugin implements Plugin<Project> {
         project.tasks.register('test') {
             dependsOn(project.initializeVariables)
             dependsOn(project.updateTomlFiles)
-            finalizedBy(project.revertTomlFiles)
+            finalizedBy(project.commitTomlFiles)
             doLast {
                 if (needSeparateTest) {
                     String distributionBinPath = project.projectDir.absolutePath + "/build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-${project.extensions.ballerina.langVersion}/bin"
