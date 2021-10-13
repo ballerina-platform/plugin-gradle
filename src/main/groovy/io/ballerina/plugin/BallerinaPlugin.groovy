@@ -289,6 +289,13 @@ class BallerinaPlugin implements Plugin<Project> {
             delete "$project.projectDir/target"
             delete "$project.projectDir/build"
         }
+
+        project.tasks.register('copyDistribution', Copy.class) {
+            from "/home/dilan/Private/WSO2/pcm-stdLib/module-ballerina-grpc/ballerina/build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-2.0.0-beta.3"
+//            from project.projectDir.absolutePath + "/build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-${project.extensions.ballerina.langVersion}"
+//            into project.rootDir.absolutePath + "/target/ballerina-distribution"
+            into "/home/dilan/Private/WSO2/pcm-stdLib/module-ballerina-grpc/target/ballerina-distribution"
+        }
     }
 
 }
