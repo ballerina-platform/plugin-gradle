@@ -16,6 +16,6 @@ jobs:
           java-version: 11
       - name: Github Packages Publish
         env:
-          publishUser: ${{ secrets.BALLERINA_BOT_USERNAME }}
-          publishPAT: ${{ secrets.BALLERINA_BOT_TOKEN }}
+          publishUser: ${{ secrets.FORK_USERNAME }}
+          publishPAT: ${{ secrets.FORK_TOKEN }}
         run: ./gradlew publish
