@@ -21,6 +21,7 @@ import org.apache.tools.ant.taskdefs.condition.Os
 import org.gradle.api.InvalidUserDataException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.file.RelativePath
 import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.Delete
 import org.gradle.api.tasks.bundling.Zip
@@ -35,6 +36,49 @@ class BallerinaExtension {
 }
 
 class BallerinaPlugin implements Plugin<Project> {
+
+    void unpackJballerinaTools(Project project) {
+        project.configurations.jbalTools.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+            project.copy {
+                from(project.zipTree(artifact.getFile())) {
+                    eachFile { fcd ->
+                        fcd.relativePath = new RelativePath(!fcd.file.isDirectory(), fcd.relativePath.segments.drop(1))
+                    }
+                    includeEmptyDirs = false
+                }
+                into "${project.rootDir}/target/ballerina-distribution"
+            }
+        }
+    }
+
+    void unpackStdLibs(Project project) {
+
+        project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+            project.copy {
+                from project.zipTree(artifact.getFile())
+                into new File("${project.rootDir}/target/extracted-distributions", artifact.name + '-zip')
+            }
+        }
+    }
+
+    void copyStdlibs(Project project) {
+        def ballerinaDist = "${project.rootDir}/target/ballerina-distribution"
+        project.copy {
+            into ballerinaDist
+
+            /* Standard Libraries */
+            project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                def artifactExtractedPath = "${project.rootDir}/target/extracted-distributions/" + artifact.name + '-zip'
+                into('repo/bala') {
+                    from "${artifactExtractedPath}/bala"
+                }
+                into('repo/cache') {
+                    from "${artifactExtractedPath}/cache"
+                }
+            }
+        }
+
+    }
 
     @Override
     void apply(Project project) {
@@ -90,43 +134,10 @@ class BallerinaPlugin implements Plugin<Project> {
             from project.configurations.externalJars
         }
 
-        project.tasks.register('unpackJballerinaTools', Copy.class) {
+        project.tasks.register('addExternalJarDependsOn') {
             project.configurations.each { configuration ->
                 if (configuration.name == "externalJars") {
                     dependsOn(project.copyToLib)
-                }
-            }
-            project.configurations.jbalTools.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-                from project.zipTree(artifact.getFile())
-                into new File("${project.buildDir}/target/extracted-distributions", 'jballerina-tools-zip')
-            }
-        }
-
-        project.tasks.register('unpackStdLibs') {
-            dependsOn(project.unpackJballerinaTools)
-            doLast {
-                project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-                    project.copy {
-                        from project.zipTree(artifact.getFile())
-                        into new File("${project.buildDir}/target/extracted-distributions", artifact.name + '-zip')
-                    }
-                }
-            }
-        }
-
-        project.tasks.register('copyStdlibs', Copy.class) {
-            dependsOn(project.unpackStdLibs)
-            def ballerinaDist = "build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-${project.ballerinaLangVersion}"
-            into ballerinaDist
-
-            /* Standard Libraries */
-            project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-                def artifactExtractedPath = "${project.buildDir}/target/extracted-distributions/" + artifact.name + '-zip'
-                into('repo/bala') {
-                    from "${artifactExtractedPath}/bala"
-                }
-                into('repo/cache') {
-                    from "${artifactExtractedPath}/cache"
                 }
             }
         }
@@ -184,12 +195,16 @@ class BallerinaPlugin implements Plugin<Project> {
         project.tasks.register('build') {
             dependsOn(project.initializeVariables)
             dependsOn(project.updateTomlFiles)
+            dependsOn(project.addExternalJarDependsOn)
             finalizedBy(project.commitTomlFiles)
             dependsOn(project.test)
 
             inputs.dir projectDirectory
             doLast {
-                String distributionBinPath = project.projectDir.absolutePath + "/build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-${project.extensions.ballerina.langVersion}/bin"
+                unpackJballerinaTools(project)
+                unpackStdLibs(project)
+                copyStdlibs(project)
+                String distributionBinPath = project.rootDir.absolutePath + "/target/ballerina-distribution/bin"
                 String packageName = project.extensions.ballerina.module
                 String balaVersion
                 if (project.extensions.ballerina.customTomlVersion == null) {
@@ -253,6 +268,10 @@ class BallerinaPlugin implements Plugin<Project> {
                         }
                     }
                 }
+                project.delete "${project.rootDir}/target"
+                unpackJballerinaTools(project)
+                unpackStdLibs(project)
+                copyStdlibs(project)
             }
 
             outputs.dir artifactCacheParent
@@ -267,10 +286,11 @@ class BallerinaPlugin implements Plugin<Project> {
         project.tasks.register('test') {
             dependsOn(project.initializeVariables)
             dependsOn(project.updateTomlFiles)
+            dependsOn(project.addExternalJarDependsOn)
             finalizedBy(project.commitTomlFiles)
             doLast {
                 if (needSeparateTest) {
-                    String distributionBinPath = project.projectDir.absolutePath + "/build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-${project.extensions.ballerina.langVersion}/bin"
+                    String distributionBinPath = project.rootDir.absolutePath + "/target/ballerina-distribution/bin"
                     String packageName = project.extensions.ballerina.module
                     project.exec {
                         workingDir project.projectDir
@@ -288,6 +308,7 @@ class BallerinaPlugin implements Plugin<Project> {
         project.tasks.register('clean', Delete.class) {
             delete "$project.projectDir/target"
             delete "$project.projectDir/build"
+            delete "$project.rootDir/target"
         }
     }
 
