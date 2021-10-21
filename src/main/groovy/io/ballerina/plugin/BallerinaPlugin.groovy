@@ -46,38 +46,40 @@ class BallerinaPlugin implements Plugin<Project> {
                     }
                     includeEmptyDirs = false
                 }
-                into "${project.rootDir}/target/ballerina-distribution"
+                into "${project.rootDir}/target/ballerina-runtime"
             }
         }
     }
 
     void unpackStdLibs(Project project) {
-
-        project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-            project.copy {
-                from project.zipTree(artifact.getFile())
-                into new File("${project.rootDir}/target/extracted-distributions", artifact.name + '-zip')
+        if (project.configurations.findByName("ballerinaStdLibs")) {
+            project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                project.copy {
+                    from project.zipTree(artifact.getFile())
+                    into new File("${project.rootDir}/target/ballerina-packages", artifact.name + '-zip')
+                }
             }
         }
     }
 
     void copyStdlibs(Project project) {
-        def ballerinaDist = "${project.rootDir}/target/ballerina-distribution"
-        project.copy {
-            into ballerinaDist
+        if (project.configurations.findByName("ballerinaStdLibs")) {
+            def ballerinaDist = "${project.rootDir}/target/ballerina-runtime"
+            project.copy {
+                into ballerinaDist
 
-            /* Standard Libraries */
-            project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-                def artifactExtractedPath = "${project.rootDir}/target/extracted-distributions/" + artifact.name + '-zip'
-                into('repo/bala') {
-                    from "${artifactExtractedPath}/bala"
-                }
-                into('repo/cache') {
-                    from "${artifactExtractedPath}/cache"
+                /* Standard Libraries */
+                project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                    def artifactExtractedPath = "${project.rootDir}/target/ballerina-packages/" + artifact.name + '-zip'
+                    into('repo/bala') {
+                        from "${artifactExtractedPath}/bala"
+                    }
+                    into('repo/cache') {
+                        from "${artifactExtractedPath}/cache"
+                    }
                 }
             }
         }
-
     }
 
     @Override
@@ -204,7 +206,7 @@ class BallerinaPlugin implements Plugin<Project> {
                 unpackJballerinaTools(project)
                 unpackStdLibs(project)
                 copyStdlibs(project)
-                String distributionBinPath = project.rootDir.absolutePath + "/target/ballerina-distribution/bin"
+                String distributionBinPath = project.rootDir.absolutePath + "/target/ballerina-runtime/bin"
                 String packageName = project.extensions.ballerina.module
                 String balaVersion
                 if (project.extensions.ballerina.customTomlVersion == null) {
@@ -290,7 +292,7 @@ class BallerinaPlugin implements Plugin<Project> {
             finalizedBy(project.commitTomlFiles)
             doLast {
                 if (needSeparateTest) {
-                    String distributionBinPath = project.rootDir.absolutePath + "/target/ballerina-distribution/bin"
+                    String distributionBinPath = project.rootDir.absolutePath + "/target/ballerina-runtime/bin"
                     String packageName = project.extensions.ballerina.module
                     project.exec {
                         workingDir project.projectDir
