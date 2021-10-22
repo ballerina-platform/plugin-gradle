@@ -236,7 +236,7 @@ class BallerinaPlugin implements Plugin<Project> {
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                             commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat build -c --offline -with-tests ${testParams} ${debugParams} && exit %%ERRORLEVEL%%"
                         } else {
-                            commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal build -c --offline ${testParams} ${debugParams}"
+                            commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal build -c --offline --with-tests ${testParams} ${debugParams}"
                         }
                     }
                     // extract bala file to artifact cache directory
