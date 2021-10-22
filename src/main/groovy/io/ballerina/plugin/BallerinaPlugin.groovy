@@ -37,7 +37,7 @@ class BallerinaExtension {
 
 class BallerinaPlugin implements Plugin<Project> {
 
-    void unpackJballerinaTools(Project project) {
+    void unpackJballerinaTools(Project project, String destinationPath) {
         project.configurations.jbalTools.resolvedConfiguration.resolvedArtifacts.each { artifact ->
             project.copy {
                 from(project.zipTree(artifact.getFile())) {
@@ -46,31 +46,30 @@ class BallerinaPlugin implements Plugin<Project> {
                     }
                     includeEmptyDirs = false
                 }
-                into "${project.rootDir}/target/ballerina-runtime"
+                into destinationPath
             }
         }
     }
 
-    void unpackStdLibs(Project project) {
+    void unpackStdLibs(Project project, String destinationPath) {
         if (project.configurations.findByName("ballerinaStdLibs")) {
             project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
                 project.copy {
                     from project.zipTree(artifact.getFile())
-                    into new File("${project.rootDir}/target/ballerina-packages", artifact.name + '-zip')
+                    into new File(destinationPath, artifact.name + '-zip')
                 }
             }
         }
     }
 
-    void copyStdlibs(Project project) {
+    void copyStdlibs(Project project, String extractedPath, String runtimePath) {
         if (project.configurations.findByName("ballerinaStdLibs")) {
-            def ballerinaDist = "${project.rootDir}/target/ballerina-runtime"
             project.copy {
-                into ballerinaDist
+                into runtimePath
 
                 /* Standard Libraries */
                 project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-                    def artifactExtractedPath = "${project.rootDir}/target/ballerina-packages/" + artifact.name + '-zip'
+                    def artifactExtractedPath = extractedPath + artifact.name + '-zip'
                     into('repo/bala') {
                         from "${artifactExtractedPath}/bala"
                     }
@@ -203,10 +202,12 @@ class BallerinaPlugin implements Plugin<Project> {
 
             inputs.dir projectDirectory
             doLast {
-                unpackJballerinaTools(project)
-                unpackStdLibs(project)
-                copyStdlibs(project)
-                String distributionBinPath = project.rootDir.absolutePath + "/target/ballerina-runtime/bin"
+                String runtimePath = "${project.buildDir}/target/extracted-distributions/jballerina-tools-zip"
+                String extractedPath = "${project.buildDir}/target/extracted-distributions/"
+                unpackJballerinaTools(project, runtimePath)
+                unpackStdLibs(project, extractedPath)
+                copyStdlibs(project, extractedPath, runtimePath)
+                String distributionBinPath = runtimePath + "/bin"
                 String packageName = project.extensions.ballerina.module
                 String balaVersion
                 if (project.extensions.ballerina.customTomlVersion == null) {
@@ -270,10 +271,9 @@ class BallerinaPlugin implements Plugin<Project> {
                         }
                     }
                 }
-                project.delete "${project.rootDir}/target"
-                unpackJballerinaTools(project)
-                unpackStdLibs(project)
-                copyStdlibs(project)
+                String rootRuntimePath = "${project.rootDir}/target/ballerina-runtime"
+                unpackJballerinaTools(project, rootRuntimePath)
+                copyStdlibs(project, extractedPath, rootRuntimePath)
             }
 
             outputs.dir artifactCacheParent
@@ -298,9 +298,9 @@ class BallerinaPlugin implements Plugin<Project> {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "${balJavaDebugParam} ${distributionBinPath}/bal.bat test ${testParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
+                            commandLine 'cmd', '/c', "${balJavaDebugParam} ${distributionBinPath}/bal.bat test --offline ${testParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
                         } else {
-                            commandLine 'sh', '-c', "${balJavaDebugParam} ${distributionBinPath}/bal test ${testParams} ${groupParams} ${disableGroups} ${debugParams}"
+                            commandLine 'sh', '-c', "${balJavaDebugParam} ${distributionBinPath}/bal test --offline ${testParams} ${groupParams} ${disableGroups} ${debugParams}"
                         }
                     }
                 }
