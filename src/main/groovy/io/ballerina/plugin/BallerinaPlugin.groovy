@@ -279,6 +279,10 @@ class BallerinaPlugin implements Plugin<Project> {
                         }
                     }
                 }
+                project.copy {
+                    from "$project.rootDir/ballerina/build/cache_parent/bala"
+                    into "${project.rootDir}/target/ballerina-runtime/repo/bala"
+                }
             }
 
             outputs.dir artifactCacheParent
