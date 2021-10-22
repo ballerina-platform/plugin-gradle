@@ -206,9 +206,9 @@ class BallerinaPlugin implements Plugin<Project> {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat build -c --with-tests ${testParams} ${debugParams} && exit %%ERRORLEVEL%%"
+                            commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat build -c --offline -with-tests ${testParams} ${debugParams} && exit %%ERRORLEVEL%%"
                         } else {
-                            commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal build -c --with-tests ${testParams} ${debugParams}"
+                            commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal build -c --offline --with-tests ${testParams} ${debugParams}"
                         }
                     }
                     // extract bala file to artifact cache directory
@@ -274,9 +274,9 @@ class BallerinaPlugin implements Plugin<Project> {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "${balJavaDebugParam} ${distributionBinPath}/bal.bat test ${testParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
+                            commandLine 'cmd', '/c', "${balJavaDebugParam} ${distributionBinPath}/bal.bat test --offline ${testParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
                         } else {
-                            commandLine 'sh', '-c', "${balJavaDebugParam} ${distributionBinPath}/bal test ${testParams} ${groupParams} ${disableGroups} ${debugParams}"
+                            commandLine 'sh', '-c', "${balJavaDebugParam} ${distributionBinPath}/bal test --offline ${testParams} ${groupParams} ${disableGroups} ${debugParams}"
                         }
                     }
                 }
