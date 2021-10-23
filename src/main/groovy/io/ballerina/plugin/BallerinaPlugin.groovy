@@ -171,9 +171,9 @@ class BallerinaPlugin implements Plugin<Project> {
                 }
                 if (graph.hasTask(":${packageName}-ballerina:test")) {
                     if (project.extensions.ballerina.testCoverageParam == null) {
-                        testParams = "--code-coverage --coverage-format=xml --includes=io.ballerina.stdlib.${packageName}.*:${organisation}.${packageName}.*"
+                        testParams = "--with-tests --code-coverage --coverage-format=xml --includes=io.ballerina.stdlib.${packageName}.*:${organisation}.${packageName}.*"
                     } else {
-                        testParams = project.extensions.ballerina.testCoverageParam
+                        testParams = "--with-tests ${project.extensions.ballerina.testCoverageParam}"
                     }
                 }
             }
@@ -206,9 +206,9 @@ class BallerinaPlugin implements Plugin<Project> {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat pack --offline --with-tests ${testParams} ${debugParams} && exit %%ERRORLEVEL%%"
+                            commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat pack --offline ${testParams} ${debugParams} && exit %%ERRORLEVEL%%"
                         } else {
-                            commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal pack --offline --with-tests ${testParams} ${debugParams}"
+                            commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal pack --offline ${testParams} ${debugParams}"
                         }
                     }
                     // extract bala file to artifact cache directory
