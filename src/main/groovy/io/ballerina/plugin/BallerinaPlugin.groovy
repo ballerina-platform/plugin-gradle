@@ -21,6 +21,7 @@ import org.apache.tools.ant.taskdefs.condition.Os
 import org.gradle.api.InvalidUserDataException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.file.RelativePath
 import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.Delete
 import org.gradle.api.tasks.bundling.Zip
@@ -90,15 +91,29 @@ class BallerinaPlugin implements Plugin<Project> {
             from project.configurations.externalJars
         }
 
-        project.tasks.register('unpackJballerinaTools', Copy.class) {
+        project.tasks.register('unpackJballerinaTools') {
             project.configurations.each { configuration ->
                 if (configuration.name == "externalJars") {
                     dependsOn(project.copyToLib)
                 }
             }
-            project.configurations.jbalTools.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-                from project.zipTree(artifact.getFile())
-                into new File("${project.buildDir}/target/extracted-distributions", 'jballerina-tools-zip')
+            doLast {
+                project.configurations.jbalTools.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                    project.copy {
+                        from project.zipTree(artifact.getFile())
+                        into new File("${project.buildDir}/target/extracted-distributions", 'jballerina-tools-zip')
+                    }
+
+                    project.copy {
+                        from(project.zipTree(artifact.getFile())) {
+                            eachFile { fcd ->
+                                fcd.relativePath = new RelativePath(!fcd.file.isDirectory(), fcd.relativePath.segments.drop(1))
+                            }
+                            includeEmptyDirs = false
+                        }
+                        into "${project.rootDir}/target/ballerina-runtime"
+                    }
+                }
             }
         }
 
@@ -114,19 +129,32 @@ class BallerinaPlugin implements Plugin<Project> {
             }
         }
 
-        project.tasks.register('copyStdlibs', Copy.class) {
+        project.tasks.register('copyStdlibs') {
             dependsOn(project.unpackStdLibs)
-            def ballerinaDist = "build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-${project.ballerinaLangVersion}"
-            into ballerinaDist
-
-            /* Standard Libraries */
-            project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-                def artifactExtractedPath = "${project.buildDir}/target/extracted-distributions/" + artifact.name + '-zip'
-                into('repo/bala') {
-                    from "${artifactExtractedPath}/bala"
-                }
-                into('repo/cache') {
-                    from "${artifactExtractedPath}/cache"
+            doLast {
+                /* Standard Libraries */
+                project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                    def artifactExtractedPath = "${project.buildDir}/target/extracted-distributions/" + artifact.name + '-zip'
+                    project.copy {
+                        def ballerinaDist = "build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-${project.ballerinaLangVersion}"
+                        into ballerinaDist
+                        into('repo/bala') {
+                            from "${artifactExtractedPath}/bala"
+                        }
+                        into('repo/cache') {
+                            from "${artifactExtractedPath}/cache"
+                        }
+                    }
+                    project.copy {
+                        def runtimePath = "${project.rootDir}/target/ballerina-runtime"
+                        into runtimePath
+                        into('repo/bala') {
+                            from "${artifactExtractedPath}/bala"
+                        }
+                        into('repo/cache') {
+                            from "${artifactExtractedPath}/cache"
+                        }
+                    }
                 }
             }
         }
@@ -251,6 +279,10 @@ class BallerinaPlugin implements Plugin<Project> {
                         }
                     }
                 }
+                project.copy {
+                    from "$project.rootDir/ballerina/build/cache_parent/bala"
+                    into "${project.rootDir}/target/ballerina-runtime/repo/bala"
+                }
             }
 
             outputs.dir artifactCacheParent
@@ -286,6 +318,7 @@ class BallerinaPlugin implements Plugin<Project> {
         project.tasks.register('clean', Delete.class) {
             delete "$project.projectDir/target"
             delete "$project.projectDir/build"
+            delete "$project.rootDir/target"
         }
     }
 
