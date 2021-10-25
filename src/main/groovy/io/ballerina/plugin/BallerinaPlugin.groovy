@@ -67,7 +67,8 @@ class BallerinaPlugin implements Plugin<Project> {
         def disableGroups = ''
         def debugParams = ''
         def balJavaDebugParam = ''
-        def testParams = ''
+        def testParam = ''
+        def testCoverageParams = ''
         def needSeparateTest = false
         def needBuildWithTest = false
         def needPublishToCentral = false
@@ -199,10 +200,11 @@ class BallerinaPlugin implements Plugin<Project> {
                 }
                 if (graph.hasTask(":${packageName}-ballerina:test")) {
                     if (project.extensions.ballerina.testCoverageParam == null) {
-                        testParams = "--with-tests --code-coverage --coverage-format=xml --includes=io.ballerina.stdlib.${packageName}.*:${organisation}.${packageName}.*"
+                        testCoverageParams = "--code-coverage --coverage-format=xml --includes=io.ballerina.stdlib.${packageName}.*:${organisation}.${packageName}.*"
                     } else {
-                        testParams = "--with-tests ${project.extensions.ballerina.testCoverageParam}"
+                        testCoverageParams = project.extensions.ballerina.testCoverageParam
                     }
+                    testParam = '--with-tests'
                 }
             }
         }
@@ -234,9 +236,9 @@ class BallerinaPlugin implements Plugin<Project> {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat pack --offline ${testParams} ${debugParams} && exit %%ERRORLEVEL%%"
+                            commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat pack --offline ${testParam} ${testCoverageParams} ${debugParams} && exit %%ERRORLEVEL%%"
                         } else {
-                            commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal pack --offline ${testParams} ${debugParams}"
+                            commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal pack --offline ${testParam} ${testCoverageParams} ${debugParams}"
                         }
                     }
                     // extract bala file to artifact cache directory
@@ -306,9 +308,9 @@ class BallerinaPlugin implements Plugin<Project> {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "${balJavaDebugParam} ${distributionBinPath}/bal.bat test --offline ${testParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
+                            commandLine 'cmd', '/c', "${balJavaDebugParam} ${distributionBinPath}/bal.bat test --offline ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
                         } else {
-                            commandLine 'sh', '-c', "${balJavaDebugParam} ${distributionBinPath}/bal test --offline ${testParams} ${groupParams} ${disableGroups} ${debugParams}"
+                            commandLine 'sh', '-c', "${balJavaDebugParam} ${distributionBinPath}/bal test --offline ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                         }
                     }
                 }
