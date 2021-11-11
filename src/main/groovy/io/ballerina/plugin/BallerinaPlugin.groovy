@@ -234,7 +234,6 @@ class BallerinaPlugin implements Plugin<Project> {
                     // Pack bala first
                     project.exec {
                         workingDir project.projectDir
-                        // ./custom
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                             commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat pack --target-dir ${ballerinaTarget} --offline ${debugParams} && exit %%ERRORLEVEL%%"
