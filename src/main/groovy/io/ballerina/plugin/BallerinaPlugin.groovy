@@ -74,6 +74,7 @@ class BallerinaPlugin implements Plugin<Project> {
         def needPublishToLocalCentral = false
         def packageOrg = ''
         def ballerinaTarget = 'ballerinaTarget'
+        def skipTests = true
 
         if (project.version.matches(project.ext.timestampedVersionRegex)) {
             def splitVersion = project.version.split('-')
@@ -204,6 +205,7 @@ class BallerinaPlugin implements Plugin<Project> {
                     } else {
                         testCoverageParams = project.extensions.ballerina.testCoverageParam
                     }
+                    skipTests = false;
                 }
             }
         }
@@ -242,15 +244,17 @@ class BallerinaPlugin implements Plugin<Project> {
                         }
                     }
                     // Run tests
-                    project.exec {
-                        workingDir project.projectDir
-                        environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat test --offline ${testCoverageParams} ${debugParams} && exit %%ERRORLEVEL%%"
-                        } else {
-                            commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal test --offline ${testCoverageParams} ${debugParams}"
-                        }
+                    if (!skipTests) {
+                        project.exec {
+                            workingDir project.projectDir
+                            environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
+                            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                                commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat test --offline ${testCoverageParams} ${debugParams} && exit %%ERRORLEVEL%%"
+                            } else {
+                                commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal test --offline ${testCoverageParams} ${debugParams}"
+                            }
 
+                        }
                     }
                     // extract bala file to artifact cache directory
                     new File("$project.projectDir/${ballerinaTarget}/bala").eachFileMatch(~/.*.bala/) { balaFile ->
