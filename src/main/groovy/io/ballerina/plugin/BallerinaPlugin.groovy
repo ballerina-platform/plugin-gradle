@@ -267,16 +267,13 @@ class BallerinaPlugin implements Plugin<Project> {
                             return
                         }
                         if (ballerinaCentralAccessToken != null) {
-                            println('Publishing to the ballerina central...')
-                            new File("$project.projectDir/${ballerinaTarget}/bala").eachFileMatch(~/.*.bala/) { balaFile ->
-                                project.exec {
-                                    workingDir project.projectDir
-                                    environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                                    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                        commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${balaFile.path} && exit %%ERRORLEVEL%%"
-                                    } else {
-                                        commandLine 'sh', '-c', "$distributionBinPath/bal push ${balaFile.path}"
-                                    }
+                            project.exec {
+                                workingDir project.projectDir
+                                environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
+                                if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                                    commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${ballerinaTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala && exit %%ERRORLEVEL%%"
+                                } else {
+                                    commandLine 'sh', '-c', "$distributionBinPath/bal push ${ballerinaTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala"
                                 }
                             }
                         } else {
@@ -284,15 +281,13 @@ class BallerinaPlugin implements Plugin<Project> {
                         }
                     } else if (needPublishToLocalCentral) {
                         println('Publishing to the ballerina local central repository..')
-                        new File("$project.projectDir/${ballerinaTarget}/bala").eachFileMatch(~/.*.bala/) { balaFile ->
-                            project.exec {
-                                workingDir project.projectDir
-                                environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                                if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                    commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${balaFile.path} && exit %%ERRORLEVEL%% --repository=local"
-                                } else {
-                                    commandLine 'sh', '-c', "$distributionBinPath/bal push ${balaFile.path} --repository=local"
-                                }
+                        project.exec {
+                            workingDir project.projectDir
+                            environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
+                            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                                commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${ballerinaTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala && exit %%ERRORLEVEL%% --repository=local"
+                            } else {
+                                commandLine 'sh', '-c', "$distributionBinPath/bal push ${ballerinaTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local"
                             }
                         }
                     }
