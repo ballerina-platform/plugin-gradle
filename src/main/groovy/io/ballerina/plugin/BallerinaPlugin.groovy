@@ -67,13 +67,14 @@ class BallerinaPlugin implements Plugin<Project> {
         def disableGroups = ''
         def debugParams = ''
         def balJavaDebugParam = ''
-        def testParam = ''
         def testCoverageParams = ''
         def needSeparateTest = false
         def needBuildWithTest = false
         def needPublishToCentral = false
         def needPublishToLocalCentral = false
         def packageOrg = ''
+        def ballerinaTarget = 'ballerinaTarget'
+        def skipTests = true
 
         if (project.version.matches(project.ext.timestampedVersionRegex)) {
             def splitVersion = project.version.split('-')
@@ -204,7 +205,7 @@ class BallerinaPlugin implements Plugin<Project> {
                     } else {
                         testCoverageParams = project.extensions.ballerina.testCoverageParam
                     }
-                    testParam = '--with-tests'
+                    skipTests = false;
                 }
             }
         }
@@ -232,17 +233,31 @@ class BallerinaPlugin implements Plugin<Project> {
                     packageOrg = project.extensions.ballerina.packageOrganization
                 }
                 if (needBuildWithTest) {
+                    // Pack bala first
                     project.exec {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat pack --offline ${testParam} ${testCoverageParams} ${debugParams} && exit %%ERRORLEVEL%%"
+                            commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat pack --target-dir ${ballerinaTarget} --offline ${debugParams} && exit %%ERRORLEVEL%%"
                         } else {
-                            commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal pack --offline ${testParam} ${testCoverageParams} ${debugParams}"
+                            commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal pack --target-dir ${ballerinaTarget} --offline ${debugParams}"
+                        }
+                    }
+                    // Run tests
+                    if (!skipTests) {
+                        project.exec {
+                            workingDir project.projectDir
+                            environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
+                            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                                commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat test --offline ${testCoverageParams} ${debugParams} && exit %%ERRORLEVEL%%"
+                            } else {
+                                commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal test --offline ${testCoverageParams} ${debugParams}"
+                            }
+
                         }
                     }
                     // extract bala file to artifact cache directory
-                    new File("$project.projectDir/target/bala").eachFileMatch(~/.*.bala/) { balaFile ->
+                    new File("$project.projectDir/${ballerinaTarget}/bala").eachFileMatch(~/.*.bala/) { balaFile ->
                         project.copy {
                             from project.zipTree(balaFile)
                             into new File("$artifactCacheParent/bala/${packageOrg}/${packageName}/${balaVersion}/${platform}")
@@ -255,14 +270,13 @@ class BallerinaPlugin implements Plugin<Project> {
                             return
                         }
                         if (ballerinaCentralAccessToken != null) {
-                            println('Publishing to the ballerina central...')
                             project.exec {
                                 workingDir project.projectDir
                                 environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                                 if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                    commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push && exit %%ERRORLEVEL%%"
+                                    commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${ballerinaTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala && exit %%ERRORLEVEL%%"
                                 } else {
-                                    commandLine 'sh', '-c', "$distributionBinPath/bal push"
+                                    commandLine 'sh', '-c', "$distributionBinPath/bal push ${ballerinaTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala"
                                 }
                             }
                         } else {
@@ -274,9 +288,9 @@ class BallerinaPlugin implements Plugin<Project> {
                             workingDir project.projectDir
                             environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push && exit %%ERRORLEVEL%% --repository=local"
+                                commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${ballerinaTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala && exit %%ERRORLEVEL%% --repository=local"
                             } else {
-                                commandLine 'sh', '-c', "$distributionBinPath/bal push --repository=local"
+                                commandLine 'sh', '-c', "$distributionBinPath/bal push ${ballerinaTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local"
                             }
                         }
                     }
@@ -321,6 +335,7 @@ class BallerinaPlugin implements Plugin<Project> {
             delete "$project.projectDir/target"
             delete "$project.projectDir/build"
             delete "$project.rootDir/target"
+            delete "$project.projectDir/${ballerinaTarget}"
         }
     }
 
