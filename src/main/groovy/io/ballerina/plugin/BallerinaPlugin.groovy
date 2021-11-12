@@ -315,7 +315,6 @@ class BallerinaPlugin implements Plugin<Project> {
             doLast {
                 if (needSeparateTest) {
                     String distributionBinPath = project.projectDir.absolutePath + "/build/jballerina-tools-${project.extensions.ballerina.langVersion}/bin"
-                    String packageName = project.extensions.ballerina.module
                     project.exec {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
