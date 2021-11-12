@@ -102,7 +102,7 @@ class BallerinaPlugin implements Plugin<Project> {
                 project.configurations.jbalTools.resolvedConfiguration.resolvedArtifacts.each { artifact ->
                     project.copy {
                         from project.zipTree(artifact.getFile())
-                        into new File("${project.buildDir}/target/extracted-distributions", 'jballerina-tools-zip')
+                        into new File("${project.buildDir}/")
                     }
 
                     project.copy {
@@ -124,7 +124,7 @@ class BallerinaPlugin implements Plugin<Project> {
                 project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
                     project.copy {
                         from project.zipTree(artifact.getFile())
-                        into new File("${project.buildDir}/target/extracted-distributions", artifact.name + '-zip')
+                        into new File("${project.buildDir}/extracted-stdlibs", artifact.name + '-zip')
                     }
                 }
             }
@@ -135,9 +135,9 @@ class BallerinaPlugin implements Plugin<Project> {
             doLast {
                 /* Standard Libraries */
                 project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-                    def artifactExtractedPath = "${project.buildDir}/target/extracted-distributions/" + artifact.name + '-zip'
+                    def artifactExtractedPath = "${project.buildDir}/extracted-stdlibs/" + artifact.name + '-zip'
                     project.copy {
-                        def ballerinaDist = "build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-${project.ballerinaLangVersion}"
+                        def ballerinaDist = "build/jballerina-tools-${project.ballerinaLangVersion}"
                         into ballerinaDist
                         into('repo/bala') {
                             from "${artifactExtractedPath}/bala"
@@ -217,7 +217,7 @@ class BallerinaPlugin implements Plugin<Project> {
 
             inputs.dir projectDirectory
             doLast {
-                String distributionBinPath = project.projectDir.absolutePath + "/build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-${project.extensions.ballerina.langVersion}/bin"
+                String distributionBinPath = project.projectDir.absolutePath + "/build/jballerina-tools-${project.extensions.ballerina.langVersion}/bin"
                 String packageName = project.extensions.ballerina.module
                 String balaVersion
                 if (project.extensions.ballerina.customTomlVersion == null) {
@@ -314,7 +314,7 @@ class BallerinaPlugin implements Plugin<Project> {
             finalizedBy(project.commitTomlFiles)
             doLast {
                 if (needSeparateTest) {
-                    String distributionBinPath = project.projectDir.absolutePath + "/build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-${project.extensions.ballerina.langVersion}/bin"
+                    String distributionBinPath = project.projectDir.absolutePath + "/build/jballerina-tools-${project.extensions.ballerina.langVersion}/bin"
                     String packageName = project.extensions.ballerina.module
                     project.exec {
                         workingDir project.projectDir
