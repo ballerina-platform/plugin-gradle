@@ -57,10 +57,11 @@ class BallerinaPlugin implements Plugin<Project> {
             }
         }
 
+        def packageOrg = ''
         def platform = 'java11'
         def tomlVersion
-        def artifactCacheParent = new File("$project.projectDir/build/cache_parent/")
-        def artifactLibParent = new File("$project.projectDir/build/lib_parent/")
+        def balBuildTarget = 'build/bal_build_target'
+        def balaArtifact = new File("$project.projectDir/build/bala_unzipped/")
         def projectDirectory = new File("$project.projectDir")
         def ballerinaCentralAccessToken = System.getenv('BALLERINA_CENTRAL_ACCESS_TOKEN')
         def groupParams = ''
@@ -72,8 +73,6 @@ class BallerinaPlugin implements Plugin<Project> {
         def needBuildWithTest = false
         def needPublishToCentral = false
         def needPublishToLocalCentral = false
-        def packageOrg = ''
-        def ballerinaTarget = 'ballerinaTarget'
         def skipTests = true
 
         if (project.version.matches(project.ext.timestampedVersionRegex)) {
@@ -103,7 +102,7 @@ class BallerinaPlugin implements Plugin<Project> {
                 project.configurations.jbalTools.resolvedConfiguration.resolvedArtifacts.each { artifact ->
                     project.copy {
                         from project.zipTree(artifact.getFile())
-                        into new File("${project.buildDir}/target/extracted-distributions", 'jballerina-tools-zip')
+                        into new File("${project.buildDir}/")
                     }
 
                     project.copy {
@@ -125,7 +124,7 @@ class BallerinaPlugin implements Plugin<Project> {
                 project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
                     project.copy {
                         from project.zipTree(artifact.getFile())
-                        into new File("${project.buildDir}/target/extracted-distributions", artifact.name + '-zip')
+                        into new File("${project.buildDir}/extracted-stdlibs", artifact.name + '-zip')
                     }
                 }
             }
@@ -136,9 +135,9 @@ class BallerinaPlugin implements Plugin<Project> {
             doLast {
                 /* Standard Libraries */
                 project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-                    def artifactExtractedPath = "${project.buildDir}/target/extracted-distributions/" + artifact.name + '-zip'
+                    def artifactExtractedPath = "${project.buildDir}/extracted-stdlibs/" + artifact.name + '-zip'
                     project.copy {
-                        def ballerinaDist = "build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-${project.ballerinaLangVersion}"
+                        def ballerinaDist = "build/jballerina-tools-${project.ballerinaLangVersion}"
                         into ballerinaDist
                         into('repo/bala') {
                             from "${artifactExtractedPath}/bala"
@@ -218,7 +217,7 @@ class BallerinaPlugin implements Plugin<Project> {
 
             inputs.dir projectDirectory
             doLast {
-                String distributionBinPath = project.projectDir.absolutePath + "/build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-${project.extensions.ballerina.langVersion}/bin"
+                String distributionBinPath = project.projectDir.absolutePath + "/build/jballerina-tools-${project.extensions.ballerina.langVersion}/bin"
                 String packageName = project.extensions.ballerina.module
                 String balaVersion
                 if (project.extensions.ballerina.customTomlVersion == null) {
@@ -238,9 +237,9 @@ class BallerinaPlugin implements Plugin<Project> {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat pack --target-dir ${ballerinaTarget} --offline ${debugParams} && exit %%ERRORLEVEL%%"
+                            commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat pack --target-dir ${balBuildTarget} --offline ${debugParams} && exit %%ERRORLEVEL%%"
                         } else {
-                            commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal pack --target-dir ${ballerinaTarget} --offline ${debugParams}"
+                            commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal pack --target-dir ${balBuildTarget} --offline ${debugParams}"
                         }
                     }
                     // Run tests
@@ -256,12 +255,16 @@ class BallerinaPlugin implements Plugin<Project> {
 
                         }
                     }
-                    // extract bala file to artifact cache directory
-                    new File("$project.projectDir/${ballerinaTarget}/bala").eachFileMatch(~/.*.bala/) { balaFile ->
+                    // extract bala file to balaArtifact
+                    new File("$project.projectDir/${balBuildTarget}/bala").eachFileMatch(~/.*.bala/) { balaFile ->
                         project.copy {
                             from project.zipTree(balaFile)
-                            into new File("$artifactCacheParent/bala/${packageOrg}/${packageName}/${balaVersion}/${platform}")
+                            into new File("$balaArtifact/bala/${packageOrg}/${packageName}/${balaVersion}/${platform}")
                         }
+                    }
+                    project.copy {
+                        from "$balaArtifact/bala"
+                        into "${project.rootDir}/target/ballerina-runtime/repo/bala"
                     }
                     if (needPublishToCentral) {
                         if (project.version.endsWith('-SNAPSHOT') ||
@@ -274,9 +277,9 @@ class BallerinaPlugin implements Plugin<Project> {
                                 workingDir project.projectDir
                                 environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                                 if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                    commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${ballerinaTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala && exit %%ERRORLEVEL%%"
+                                    commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala && exit %%ERRORLEVEL%%"
                                 } else {
-                                    commandLine 'sh', '-c', "$distributionBinPath/bal push ${ballerinaTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala"
+                                    commandLine 'sh', '-c', "$distributionBinPath/bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala"
                                 }
                             }
                         } else {
@@ -288,21 +291,16 @@ class BallerinaPlugin implements Plugin<Project> {
                             workingDir project.projectDir
                             environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${ballerinaTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala && exit %%ERRORLEVEL%% --repository=local"
+                                commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala && exit %%ERRORLEVEL%% --repository=local"
                             } else {
-                                commandLine 'sh', '-c', "$distributionBinPath/bal push ${ballerinaTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local"
+                                commandLine 'sh', '-c', "$distributionBinPath/bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local"
                             }
                         }
                     }
                 }
-                project.copy {
-                    from "$project.rootDir/ballerina/build/cache_parent/bala"
-                    into "${project.rootDir}/target/ballerina-runtime/repo/bala"
-                }
             }
 
-            outputs.dir artifactCacheParent
-            outputs.dir artifactLibParent
+            outputs.dir balaArtifact
         }
 
         project.tasks.register('createArtifactZip', Zip.class) {
@@ -316,8 +314,7 @@ class BallerinaPlugin implements Plugin<Project> {
             finalizedBy(project.commitTomlFiles)
             doLast {
                 if (needSeparateTest) {
-                    String distributionBinPath = project.projectDir.absolutePath + "/build/target/extracted-distributions/jballerina-tools-zip/jballerina-tools-${project.extensions.ballerina.langVersion}/bin"
-                    String packageName = project.extensions.ballerina.module
+                    String distributionBinPath = project.projectDir.absolutePath + "/build/jballerina-tools-${project.extensions.ballerina.langVersion}/bin"
                     project.exec {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
@@ -335,7 +332,6 @@ class BallerinaPlugin implements Plugin<Project> {
             delete "$project.projectDir/target"
             delete "$project.projectDir/build"
             delete "$project.rootDir/target"
-            delete "$project.projectDir/${ballerinaTarget}"
         }
     }
 
