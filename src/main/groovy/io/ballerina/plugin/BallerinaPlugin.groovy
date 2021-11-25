@@ -248,9 +248,9 @@ class BallerinaPlugin implements Plugin<Project> {
                             workingDir project.projectDir
                             environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat test --offline ${testCoverageParams} ${debugParams} && exit %%ERRORLEVEL%%"
+                                commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat test --offline ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
                             } else {
-                                commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal test --offline ${testCoverageParams} ${debugParams}"
+                                commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal test --offline ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                             }
 
                         }
