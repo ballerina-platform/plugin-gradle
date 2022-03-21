@@ -33,6 +33,7 @@ class BallerinaExtension {
     String testCoverageParam
     String packageOrganization
     String customTomlVersion
+    String platform
 }
 
 class BallerinaPlugin implements Plugin<Project> {
@@ -168,7 +169,6 @@ class BallerinaPlugin implements Plugin<Project> {
             } else {
                 organisation = project.extensions.ballerina.packageOrganization
             }
-
             if (project.hasProperty('groups')) {
                 groupParams = "--groups ${project.findProperty('groups')}"
             }
@@ -224,6 +224,10 @@ class BallerinaPlugin implements Plugin<Project> {
                     balaVersion = tomlVersion
                 } else {
                     balaVersion = project.extensions.ballerina.customTomlVersion
+                }
+                
+                if (project.extensions.ballerina.platform != null) {
+                    platform = project.extensions.ballerina.platform
                 }
 
                 if (project.extensions.ballerina.packageOrganization == null) {
