@@ -41,23 +41,7 @@ class BallerinaPlugin implements Plugin<Project> {
     @Override
     void apply(Project project) {
         project.extensions.create('ballerina', BallerinaExtension)
-
-        project.configurations {
-            jbalTools
-        }
-
-        project.dependencies {
-            if (project.extensions.ballerina.langVersion == null) {
-                jbalTools("org.ballerinalang:jballerina-tools:${project.ballerinaLangVersion}") {
-                    transitive = false
-                }
-            } else {
-                jbalTools("org.ballerinalang:jballerina-tools:${project.extensions.ballerina.langVersion}") {
-                    transitive = false
-                }
-            }
-        }
-
+        
         def packageOrg = ''
         def platform = 'java11'
         def tomlVersion
@@ -75,6 +59,7 @@ class BallerinaPlugin implements Plugin<Project> {
         def needPublishToCentral = false
         def needPublishToLocalCentral = false
         def skipTests = true
+        def checkForBreakingChanges = (System.getenv('CHECK_BRAEKING_CHANGES') == "true")
 
         if (project.version.matches(project.ext.timestampedVersionRegex)) {
             def splitVersion = project.version.split('-')
@@ -93,68 +78,86 @@ class BallerinaPlugin implements Plugin<Project> {
             from project.configurations.externalJars
         }
 
-        project.tasks.register('unpackJballerinaTools') {
-            project.configurations.each { configuration ->
-                if (configuration.name == "externalJars") {
-                    dependsOn(project.copyToLib)
+        if (!checkForBreakingChanges) {
+            project.configurations {
+                jbalTools
+            }
+
+            project.dependencies {
+                if (project.extensions.ballerina.langVersion == null) {
+                    jbalTools("org.ballerinalang:jballerina-tools:${project.ballerinaLangVersion}") {
+                        transitive = false
+                    }
+                } else {
+                    jbalTools("org.ballerinalang:jballerina-tools:${project.extensions.ballerina.langVersion}") {
+                        transitive = false
+                    }
                 }
             }
-            doLast {
-                project.configurations.jbalTools.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-                    project.copy {
-                        from project.zipTree(artifact.getFile())
-                        into new File("${project.buildDir}/")
-                    }
 
-                    project.copy {
-                        from(project.zipTree(artifact.getFile())) {
-                            eachFile { fcd ->
-                                fcd.relativePath = new RelativePath(!fcd.file.isDirectory(), fcd.relativePath.segments.drop(1))
+            project.tasks.register('unpackJballerinaTools') {
+                project.configurations.each { configuration ->
+                    if (configuration.name == "externalJars") {
+                        dependsOn(project.copyToLib)
+                    }
+                }
+                doLast {
+                    project.configurations.jbalTools.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                        project.copy {
+                            from project.zipTree(artifact.getFile())
+                            into new File("${project.buildDir}/")
+                        }
+
+                        project.copy {
+                            from(project.zipTree(artifact.getFile())) {
+                                eachFile { fcd ->
+                                    fcd.relativePath = new RelativePath(!fcd.file.isDirectory(), fcd.relativePath.segments.drop(1))
+                                }
+                                includeEmptyDirs = false
                             }
-                            includeEmptyDirs = false
+                            into "${project.rootDir}/target/ballerina-runtime"
                         }
-                        into "${project.rootDir}/target/ballerina-runtime"
                     }
                 }
             }
-        }
 
-        project.tasks.register('unpackStdLibs') {
-            dependsOn(project.unpackJballerinaTools)
-            doLast {
-                project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-                    project.copy {
-                        from project.zipTree(artifact.getFile())
-                        into new File("${project.buildDir}/extracted-stdlibs", artifact.name + '-zip')
+            project.tasks.register('unpackStdLibs') {
+                dependsOn(project.unpackJballerinaTools)
+                doLast {
+                    project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                        project.copy {
+                            from project.zipTree(artifact.getFile())
+                            into new File("${project.buildDir}/extracted-stdlibs", artifact.name + '-zip')
+                        }
                     }
                 }
             }
-        }
 
-        project.tasks.register('copyStdlibs') {
-            dependsOn(project.unpackStdLibs)
-            doLast {
-                /* Standard Libraries */
-                project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-                    def artifactExtractedPath = "${project.buildDir}/extracted-stdlibs/" + artifact.name + '-zip'
-                    project.copy {
-                        def ballerinaDist = "build/jballerina-tools-${project.ballerinaLangVersion}"
-                        into ballerinaDist
-                        into('repo/bala') {
-                            from "${artifactExtractedPath}/bala"
+            project.tasks.register('copyStdlibs') {
+                dependsOn(project.unpackStdLibs)
+                doLast {
+                    /* Standard Libraries */
+                    project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                        def artifactExtractedPath = "${project.buildDir}/extracted-stdlibs/" + artifact.name + '-zip'
+                        project.copy {
+                            def ballerinaDist = "build/jballerina-tools-${project.ballerinaLangVersion}"
+                            into ballerinaDist
+                            into('repo/bala') {
+                                from "${artifactExtractedPath}/bala"
+                            }
+                            into('repo/cache') {
+                                from "${artifactExtractedPath}/cache"
+                            }
                         }
-                        into('repo/cache') {
-                            from "${artifactExtractedPath}/cache"
-                        }
-                    }
-                    project.copy {
-                        def runtimePath = "${project.rootDir}/target/ballerina-runtime"
-                        into runtimePath
-                        into('repo/bala') {
-                            from "${artifactExtractedPath}/bala"
-                        }
-                        into('repo/cache') {
-                            from "${artifactExtractedPath}/cache"
+                        project.copy {
+                            def runtimePath = "${project.rootDir}/target/ballerina-runtime"
+                            into runtimePath
+                            into('repo/bala') {
+                                from "${artifactExtractedPath}/bala"
+                            }
+                            into('repo/cache') {
+                                from "${artifactExtractedPath}/cache"
+                            }
                         }
                     }
                 }
@@ -240,7 +243,9 @@ class BallerinaPlugin implements Plugin<Project> {
                     project.exec {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                        if (checkForBreakingChanges) {
+                             commandLine 'sh', '-c', "docker run --net=host  --user \$(id -u):\$(id -g) -v $project.projectDir/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:nightly $balJavaDebugParam bal pack --target-dir ${balBuildTarget} --offline ${debugParams}"
+                        } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                             commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat pack --target-dir ${balBuildTarget} --offline ${debugParams} && exit %%ERRORLEVEL%%"
                         } else {
                             commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal pack --target-dir ${balBuildTarget} --offline ${debugParams}"
@@ -251,7 +256,9 @@ class BallerinaPlugin implements Plugin<Project> {
                         project.exec {
                             workingDir project.projectDir
                             environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                            if (checkForBreakingChanges) {
+                                commandLine 'sh', '-c', "docker run --net=host  --user \$(id -u):\$(id -g) -v $project.projectDir/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:nightly $balJavaDebugParam bal test --offline ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                            } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                                 commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat test --offline ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
                             } else {
                                 commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal test --offline ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
@@ -322,7 +329,9 @@ class BallerinaPlugin implements Plugin<Project> {
                     project.exec {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                        if (checkForBreakingChanges) {
+                             commandLine 'sh', '-c', "docker run --net=host --user \$(id -u):\$(id -g) -v ${project.projectDir}/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:nightly bal test --offline ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                        } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                             commandLine 'cmd', '/c', "${balJavaDebugParam} ${distributionBinPath}/bal.bat test --offline ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
                         } else {
                             commandLine 'sh', '-c', "${balJavaDebugParam} ${distributionBinPath}/bal test --offline ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
