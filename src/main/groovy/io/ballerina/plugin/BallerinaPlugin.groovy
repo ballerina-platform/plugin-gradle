@@ -59,7 +59,7 @@ class BallerinaPlugin implements Plugin<Project> {
         def needPublishToCentral = false
         def needPublishToLocalCentral = false
         def skipTests = true
-        def checkForBreakingChanges = (System.getenv('BUILD_USING_DOCKER') == "true")
+        def checkForBreakingChanges = project.hasProperty('buildUsingDocker') && project.findProperty('buildUsingDocker') == 'true'
 
         if (project.version.matches(project.ext.timestampedVersionRegex)) {
             def splitVersion = project.version.split('-')
