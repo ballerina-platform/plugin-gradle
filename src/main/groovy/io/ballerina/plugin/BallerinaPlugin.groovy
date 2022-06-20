@@ -61,6 +61,10 @@ class BallerinaPlugin implements Plugin<Project> {
         def skipTests = true
         def checkForBreakingChanges = project.hasProperty('buildUsingDocker')
         def ballerinaDockerTag = project.findProperty('buildUsingDocker')
+        if (ballerinaDockerTag == '') {
+               ballerinaDockerTag = 'nightly'
+        }
+        
 
         if (project.version.matches(project.ext.timestampedVersionRegex)) {
             def splitVersion = project.version.split('-')
