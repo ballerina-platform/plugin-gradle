@@ -59,7 +59,7 @@ class BallerinaPlugin implements Plugin<Project> {
         def needPublishToCentral = false
         def needPublishToLocalCentral = false
         def skipTests = true
-        def checkForBreakingChanges = (System.getenv('CHECK_BRAEKING_CHANGES') == "true")
+        def checkForBreakingChanges = (System.getenv('BUILD_USING_DOCKER') == "true")
 
         if (project.version.matches(project.ext.timestampedVersionRegex)) {
             def splitVersion = project.version.split('-')
@@ -73,17 +73,19 @@ class BallerinaPlugin implements Plugin<Project> {
             tomlVersion = project.version.replace("${project.ext.snapshotVersion}", '')
         }
 
+        project.configurations {
+            jbalTools
+        }
+
         project.tasks.register('copyToLib', Copy.class) {
             into "$project.projectDir/lib"
             from project.configurations.externalJars
         }
 
-        if (!checkForBreakingChanges) {
-            project.configurations {
-                jbalTools
-            }
-
-            project.dependencies {
+        project.dependencies {
+            if (checkForBreakingChanges) {
+                println("WARNING! jbalTools dependency skiped; project uses docker to build the module")
+            } else {
                 if (project.extensions.ballerina.langVersion == null) {
                     jbalTools("org.ballerinalang:jballerina-tools:${project.ballerinaLangVersion}") {
                         transitive = false
@@ -94,13 +96,18 @@ class BallerinaPlugin implements Plugin<Project> {
                     }
                 }
             }
+        }
 
-            project.tasks.register('unpackJballerinaTools') {
-                project.configurations.each { configuration ->
-                    if (configuration.name == "externalJars") {
-                        dependsOn(project.copyToLib)
-                    }
+        project.tasks.register('unpackJballerinaTools') {
+            project.configurations.each { configuration ->
+                if (configuration.name == "externalJars") {
+                    dependsOn(project.copyToLib)
                 }
+            }
+
+            if (checkForBreakingChanges) {
+                println("WARNING! task unpackJballerinaTools skiped; project uses docker to build the module")
+            } else {
                 doLast {
                     project.configurations.jbalTools.resolvedConfiguration.resolvedArtifacts.each { artifact ->
                         project.copy {
@@ -120,9 +127,13 @@ class BallerinaPlugin implements Plugin<Project> {
                     }
                 }
             }
+        }
 
-            project.tasks.register('unpackStdLibs') {
-                dependsOn(project.unpackJballerinaTools)
+        project.tasks.register('unpackStdLibs') {
+            dependsOn(project.unpackJballerinaTools)
+            if (checkForBreakingChanges) {
+                println("WARNING! task unpackStdLibs skiped; project uses docker to build the module")
+            } else {
                 doLast {
                     project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
                         project.copy {
@@ -132,9 +143,13 @@ class BallerinaPlugin implements Plugin<Project> {
                     }
                 }
             }
+        }
 
-            project.tasks.register('copyStdlibs') {
-                dependsOn(project.unpackStdLibs)
+        project.tasks.register('copyStdlibs') {
+            dependsOn(project.unpackStdLibs)
+             if (checkForBreakingChanges) {
+                println("WARNING! task copyStdlibs skiped; project uses docker to build the module")
+            } else {
                 doLast {
                     /* Standard Libraries */
                     project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
@@ -163,7 +178,7 @@ class BallerinaPlugin implements Plugin<Project> {
                 }
             }
         }
-
+        
         project.tasks.register('initializeVariables') {
             String packageName = project.extensions.ballerina.module
             String organisation
