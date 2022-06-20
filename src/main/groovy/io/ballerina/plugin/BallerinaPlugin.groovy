@@ -260,7 +260,7 @@ class BallerinaPlugin implements Plugin<Project> {
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                         if (checkForBreakingChanges) {
                             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                println("WARNING! task build skiped; project uses docker and building ballerina module using docker only allowed in linux/mac OS")
+                                commandLine 'cmd', '/c', "docker run --rm --net=host  --user \$(id -u):\$(id -g) -v $project.projectDir/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:nightly $balJavaDebugParam bal pack --target-dir ${balBuildTarget} --offline ${debugParams}"
                             } else {
                                 commandLine 'sh', '-c', "docker run --rm --net=host  --user \$(id -u):\$(id -g) -v $project.projectDir/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:nightly $balJavaDebugParam bal pack --target-dir ${balBuildTarget} --offline ${debugParams}"
                             }
@@ -277,7 +277,7 @@ class BallerinaPlugin implements Plugin<Project> {
                             environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                             if (checkForBreakingChanges) {
                                 if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                    println("WARNING! task build skiped; project uses docker and building ballerina module using docker only allowed in linux/mac OS")
+                                    commandLine 'cmd', '/c', "docker run --rm --net=host  --user \$(id -u):\$(id -g) -v $project.projectDir/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:nightly $balJavaDebugParam bal test --offline ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                                 } else {
                                     commandLine 'sh', '-c', "docker run --rm --net=host  --user \$(id -u):\$(id -g) -v $project.projectDir/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:nightly $balJavaDebugParam bal test --offline ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                                 }
@@ -354,9 +354,9 @@ class BallerinaPlugin implements Plugin<Project> {
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                         if (checkForBreakingChanges) {
                              if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                    println("WARNING! task test skiped; project uses docker and running ballerina test using docker only allowed in linux/mac OS")
+                                    commandLine 'cmd', '/c', "docker run --rm --net=host --user \$(id -u):\$(id -g) -v ${project.projectDir}/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:nightly bal test --offline ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                                 } else {
-                                     commandLine 'sh', '-c', "docker run --rm --net=host --user \$(id -u):\$(id -g) -v ${project.projectDir}/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:nightly bal test --offline ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                                    commandLine 'sh', '-c', "docker run --rm --net=host --user \$(id -u):\$(id -g) -v ${project.projectDir}/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:nightly bal test --offline ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                                 }
                         } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                             commandLine 'cmd', '/c', "${balJavaDebugParam} ${distributionBinPath}/bal.bat test --offline ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
