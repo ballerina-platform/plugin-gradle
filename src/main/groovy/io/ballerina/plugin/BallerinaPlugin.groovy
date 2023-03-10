@@ -41,7 +41,7 @@ class BallerinaPlugin implements Plugin<Project> {
     @Override
     void apply(Project project) {
         project.extensions.create('ballerina', BallerinaExtension)
-        
+
         def packageOrg = ''
         def platform = 'java11'
         def tomlVersion
@@ -65,7 +65,6 @@ class BallerinaPlugin implements Plugin<Project> {
         if (ballerinaDockerTag == '') {
                ballerinaDockerTag = 'nightly'
         }
-        
 
         if (project.version.matches(project.ext.timestampedVersionRegex)) {
             def splitVersion = project.version.split('-')
@@ -184,7 +183,7 @@ class BallerinaPlugin implements Plugin<Project> {
                 }
             }
         }
-        
+
         project.tasks.register('initializeVariables') {
             String packageName = project.extensions.ballerina.module
             String organisation
@@ -255,7 +254,7 @@ class BallerinaPlugin implements Plugin<Project> {
                 } else {
                     balaVersion = project.extensions.ballerina.customTomlVersion
                 }
-                
+
                 if (project.extensions.ballerina.platform != null) {
                     platform = project.extensions.ballerina.platform
                 }
@@ -337,7 +336,7 @@ class BallerinaPlugin implements Plugin<Project> {
                             workingDir project.projectDir
                             environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala && exit %%ERRORLEVEL%% --repository=local"
+                                commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local && exit %%ERRORLEVEL%%"
                             } else {
                                 commandLine 'sh', '-c', "$distributionBinPath/bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local"
                             }
