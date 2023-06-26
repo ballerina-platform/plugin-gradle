@@ -2,7 +2,7 @@ plugins {
     id 'groovy'
     id 'java-gradle-plugin'
     id 'maven-publish'
-    id 'com.gradle.plugin-publish' version '0.14.0'
+    id 'com.gradle.plugin-publish' version '1.2.0'
     id "net.researchgate.release" version '2.8.0'
 }
 
@@ -15,19 +15,16 @@ dependencies {
     testImplementation gradleTestKit()
 }
 
-pluginBundle {
+gradlePlugin {
     website = 'https://github.com/ballerina-platform/plugin-gradle'
     vcsUrl = 'https://github.com/ballerina-platform/plugin-gradle.git'
-    tags = ['Ballerina', 'Plugin', 'Gradle']
-}
-
-gradlePlugin {
     plugins {
         BallerinaPlugin {
             id = 'io.ballerina.plugin'
             implementationClass = 'io.ballerina.plugin.BallerinaPlugin'
             displayName = 'Ballerina Plugin'
             description = 'A plugin for Ballerina projects'
+            tags.set(['Ballerina', 'Plugin', 'Gradle'])
         }
     }
 }
