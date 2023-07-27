@@ -245,6 +245,7 @@ class BallerinaPlugin implements Plugin<Project> {
             dependsOn(project.updateTomlFiles)
             finalizedBy(project.commitTomlFiles)
             dependsOn(project.test)
+            doNotTrackState("build needs to run every time")
 
             inputs.dir projectDirectory
             doLast {
