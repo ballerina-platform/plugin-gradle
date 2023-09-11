@@ -345,7 +345,7 @@ class BallerinaPlugin implements Plugin<Project> {
                             throw new InvalidUserDataException('Central Access Token is not present')
                         }
                     } else if (needPublishToLocalCentral) {
-                        logger.info('Publishing to the ballerina local central repository..')
+                        println('Publishing to the ballerina local central repository..')
                         project.exec {
                             workingDir project.projectDir
                             environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
