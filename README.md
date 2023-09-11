@@ -4,7 +4,7 @@
 
 The Ballerina Gradle plugin is used to build Ballerina modules using Gradle. This plugin is used in the Ballerina platform to build the Ballerina Libraries. This plugin is needed when there is a Gradle project with a Ballerina submodule. The Ballerina submodule can be built using this plugin.
 
->**Note:** This plugin is not used to build generic Ballerina projects. To build generic Ballerina projects, use the Ballerina CLI.
+>**Note:** This plugin is not recommended for building standalone Ballerina packages. It is recommended to use the Ballerina CLI directly in such scenarios.
 
 ## Prerequisites
 

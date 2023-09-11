@@ -64,11 +64,6 @@ class BallerinaPlugin implements Plugin<Project> {
         def buildOnDocker = false
         def ballerinaDockerTag = ''
 
-        if (project.hasProperty('buildUsingDocker')) {
-            buildOnDocker = true
-            ballerinaDockerTag = project.findProperty('buildUsingDocker')
-        }
-
         if (project.version.matches(project.ext.timestampedVersionRegex)) {
             def splitVersion = project.version.split('-')
             if (splitVersion.length > 3) {
@@ -79,6 +74,27 @@ class BallerinaPlugin implements Plugin<Project> {
             }
         } else {
             tomlVersion = project.version.replace("${project.ext.snapshotVersion}", '')
+        }
+
+        project.afterEvaluate {
+            if (ballerinaExtension.buildOnDockerImage != null) {
+                buildOnDocker = true
+                ballerinaDockerTag = ballerinaExtension.buildOnDockerImage
+            }
+
+            if (project.hasProperty('buildUsingDocker')) {
+                buildOnDocker = true
+                ballerinaDockerTag = project.findProperty('buildUsingDocker')
+            }
+
+            if (ballerinaDockerTag == '') {
+                ballerinaDockerTag = 'nightly'
+            }
+
+            if (buildOnDocker) {
+                println("[Info] project builds on docker: $buildOnDocker")
+                println("[Info] using the Ballerina docker image tag: $ballerinaDockerTag")
+            }
         }
 
         project.configurations {
@@ -93,8 +109,8 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.dependencies {
-            if (buildOnDocker || ballerinaExtension.buildOnDockerImage) {
-                println("WARNING! jbalTools dependency skiped; project uses docker to build the module")
+            if (buildOnDocker) {
+                println("[Warning] skipping downloading jBallerinaTools dependency: project uses docker to build the module")
             } else {
                 if (ballerinaExtension.langVersion == null) {
                     jbalTools("org.ballerinalang:jballerina-tools:${project.ballerinaLangVersion}") {
@@ -115,8 +131,8 @@ class BallerinaPlugin implements Plugin<Project> {
                 }
             }
 
-            if (buildOnDocker || ballerinaExtension.buildOnDockerImage) {
-                println("WARNING! task unpackJballerinaTools skiped; project uses docker to build the module")
+            if (buildOnDocker) {
+                println("[Warning] skipping task 'unpackJballerinaTools': project uses docker to build the module")
             } else {
                 doLast {
                     project.configurations.jbalTools.resolvedConfiguration.resolvedArtifacts.each { artifact ->
@@ -141,8 +157,8 @@ class BallerinaPlugin implements Plugin<Project> {
 
         project.tasks.register('unpackStdLibs') {
             dependsOn(project.unpackJballerinaTools)
-            if (buildOnDocker || ballerinaExtension.buildOnDockerImage) {
-                println("WARNING! task unpackStdLibs skiped; project uses docker to build the module")
+            if (buildOnDocker) {
+                println("[Warning] skipping task 'unpackStdLibs': project uses docker to build the module")
             } else {
                 doLast {
                     project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
@@ -157,8 +173,8 @@ class BallerinaPlugin implements Plugin<Project> {
 
         project.tasks.register('copyStdlibs') {
             dependsOn(project.unpackStdLibs)
-             if (buildOnDocker || ballerinaExtension.buildOnDockerImage) {
-                println("WARNING! task copyStdlibs skiped; project uses docker to build the module")
+            if (buildOnDocker) {
+                println("[Warning] skipping task 'copyStdlibs': project uses docker to build the module")
             } else {
                 doLast {
                     /* Standard Libraries */
@@ -216,15 +232,15 @@ class BallerinaPlugin implements Plugin<Project> {
                 needPublishToCentral = true
             }
             if (project.hasProperty('balGraalVMTest')) {
-                println("WARNING! testing with code-coverage is disabled for ballerina graalvm test")
+                println("[Warning] disabled code coverage: running GraalVM tests")
                 graalvmFlag = '--graalvm'
             }
 
             project.gradle.taskGraph.whenReady { graph ->
                 if (!(project.hasProperty('disable') || project.hasProperty('groups')) &&
                         (graph.hasTask(":${packageName}-ballerina:build") ||
-                        graph.hasTask(":${packageName}-ballerina:publish") ||
-                        graph.hasTask(":${packageName}-ballerina:publishToMavenLocal"))) {
+                                graph.hasTask(":${packageName}-ballerina:publish") ||
+                                graph.hasTask(":${packageName}-ballerina:publishToMavenLocal"))) {
                     needSeparateTest = false
                     needBuildWithTest = true
                 } else {
@@ -275,7 +291,7 @@ class BallerinaPlugin implements Plugin<Project> {
                     project.exec {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                        if (buildOnDocker || ballerinaExtension.buildOnDockerImage) {
+                        if (buildOnDocker) {
                             String dockerTag = ballerinaExtension.buildOnDockerImage
                             if (dockerTag != null && dockerTag != '') {
                                 ballerinaDockerTag = dockerTag
@@ -296,7 +312,7 @@ class BallerinaPlugin implements Plugin<Project> {
                         project.exec {
                             workingDir project.projectDir
                             environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                            if (buildOnDocker || ballerinaExtension.buildOnDockerImage) {
+                            if (buildOnDocker) {
                                 String dockerTag = ballerinaExtension.buildOnDockerImage
                                 if (dockerTag != null && dockerTag != '') {
                                     ballerinaDockerTag = dockerTag
@@ -328,7 +344,7 @@ class BallerinaPlugin implements Plugin<Project> {
                     if (needPublishToCentral) {
                         if (project.version.endsWith('-SNAPSHOT') ||
                                 project.version.matches(project.ext.timestampedVersionRegex)) {
-                            println('The project version is SNAPSHOT or Timestamped SNAPSHOT, not publishing to central.')
+                            println("[Info] skipping publishing to central: project version is SNAPSHOT or Timestamped SNAPSHOT")
                             return
                         }
                         if (ballerinaCentralAccessToken != null) {
@@ -345,7 +361,7 @@ class BallerinaPlugin implements Plugin<Project> {
                             throw new InvalidUserDataException('Central Access Token is not present')
                         }
                     } else if (needPublishToLocalCentral) {
-                        println('Publishing to the ballerina local central repository..')
+                        println("[Info] Publishing to the ballerina local central repository")
                         project.exec {
                             workingDir project.projectDir
                             environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
@@ -377,12 +393,12 @@ class BallerinaPlugin implements Plugin<Project> {
                     project.exec {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                        if (buildOnDocker || ballerinaExtension.buildOnDockerImage) {
-                             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                    commandLine 'cmd', '/c', "docker run --rm --net=host --user \$(id -u):\$(id -g) -v ${project.projectDir}/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:$ballerinaDockerTag bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
-                                } else {
-                                    commandLine 'sh', '-c', "docker run --rm --net=host --user \$(id -u):\$(id -g) -v ${project.projectDir}/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:$ballerinaDockerTag bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
-                                }
+                        if (buildOnDocker) {
+                            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                                commandLine 'cmd', '/c', "docker run --rm --net=host --user \$(id -u):\$(id -g) -v ${project.projectDir}/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:$ballerinaDockerTag bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                            } else {
+                                commandLine 'sh', '-c', "docker run --rm --net=host --user \$(id -u):\$(id -g) -v ${project.projectDir}/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:$ballerinaDockerTag bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                            }
                         } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                             commandLine 'cmd', '/c', "${balJavaDebugParam} ${distributionBinPath}/bal.bat test --offline ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
                         } else {
