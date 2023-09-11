@@ -30,6 +30,7 @@ class BallerinaExtension {
 
     String module
     String langVersion
+    String buildOnDockerImage
     String testCoverageParam
     String packageOrganization
     String customTomlVersion
@@ -40,7 +41,7 @@ class BallerinaPlugin implements Plugin<Project> {
 
     @Override
     void apply(Project project) {
-        project.extensions.create('ballerina', BallerinaExtension)
+        def ballerinaExtension = project.extensions.create('ballerina', BallerinaExtension)
 
         def packageOrg = ''
         def platform = 'java17'
@@ -60,10 +61,12 @@ class BallerinaPlugin implements Plugin<Project> {
         def needPublishToLocalCentral = false
         def skipTests = true
         def graalvmFlag = ''
-        def checkForBreakingChanges = project.hasProperty('buildUsingDocker')
-        def ballerinaDockerTag = project.findProperty('buildUsingDocker')
-        if (ballerinaDockerTag == '') {
-               ballerinaDockerTag = 'nightly'
+        def buildOnDocker = false
+        def ballerinaDockerTag = ''
+
+        if (project.hasProperty('buildUsingDocker')) {
+            buildOnDocker = true
+            ballerinaDockerTag = project.findProperty('buildUsingDocker')
         }
 
         if (project.version.matches(project.ext.timestampedVersionRegex)) {
@@ -90,15 +93,15 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.dependencies {
-            if (checkForBreakingChanges) {
+            if (buildOnDocker || ballerinaExtension.buildOnDockerImage) {
                 println("WARNING! jbalTools dependency skiped; project uses docker to build the module")
             } else {
-                if (project.extensions.ballerina.langVersion == null) {
+                if (ballerinaExtension.langVersion == null) {
                     jbalTools("org.ballerinalang:jballerina-tools:${project.ballerinaLangVersion}") {
                         transitive = false
                     }
                 } else {
-                    jbalTools("org.ballerinalang:jballerina-tools:${project.extensions.ballerina.langVersion}") {
+                    jbalTools("org.ballerinalang:jballerina-tools:${ballerinaExtension.langVersion}") {
                         transitive = false
                     }
                 }
@@ -112,7 +115,7 @@ class BallerinaPlugin implements Plugin<Project> {
                 }
             }
 
-            if (checkForBreakingChanges) {
+            if (buildOnDocker || ballerinaExtension.buildOnDockerImage) {
                 println("WARNING! task unpackJballerinaTools skiped; project uses docker to build the module")
             } else {
                 doLast {
@@ -138,7 +141,7 @@ class BallerinaPlugin implements Plugin<Project> {
 
         project.tasks.register('unpackStdLibs') {
             dependsOn(project.unpackJballerinaTools)
-            if (checkForBreakingChanges) {
+            if (buildOnDocker || ballerinaExtension.buildOnDockerImage) {
                 println("WARNING! task unpackStdLibs skiped; project uses docker to build the module")
             } else {
                 doLast {
@@ -154,7 +157,7 @@ class BallerinaPlugin implements Plugin<Project> {
 
         project.tasks.register('copyStdlibs') {
             dependsOn(project.unpackStdLibs)
-             if (checkForBreakingChanges) {
+             if (buildOnDocker || ballerinaExtension.buildOnDockerImage) {
                 println("WARNING! task copyStdlibs skiped; project uses docker to build the module")
             } else {
                 doLast {
@@ -187,12 +190,12 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.tasks.register('initializeVariables') {
-            String packageName = project.extensions.ballerina.module
-            String organisation
-            if (project.extensions.ballerina.packageOrganization == null) {
-                organisation = 'ballerina'
+            String packageName = ballerinaExtension.module
+            String organization
+            if (ballerinaExtension.packageOrganization == null) {
+                organization = 'ballerina'
             } else {
-                organisation = project.extensions.ballerina.packageOrganization
+                organization = ballerinaExtension.packageOrganization
             }
             if (project.hasProperty('groups')) {
                 groupParams = "--groups ${project.findProperty('groups')}"
@@ -229,10 +232,10 @@ class BallerinaPlugin implements Plugin<Project> {
                 }
                 if (graph.hasTask(":${packageName}-ballerina:test")) {
                     if (!project.hasProperty('balGraalVMTest')) {
-                        if (project.extensions.ballerina.testCoverageParam == null) {
-                            testCoverageParams = "--code-coverage --coverage-format=xml --includes=io.ballerina.stdlib.${packageName}.*:${organisation}.${packageName}.*"
+                        if (ballerinaExtension.testCoverageParam == null) {
+                            testCoverageParams = "--code-coverage --coverage-format=xml --includes=io.ballerina.stdlib.${packageName}.*:${organization}.${packageName}.*"
                         } else {
-                            testCoverageParams = project.extensions.ballerina.testCoverageParam
+                            testCoverageParams = ballerinaExtension.testCoverageParam
                         }
                     }
                     skipTests = false;
@@ -249,30 +252,34 @@ class BallerinaPlugin implements Plugin<Project> {
 
             inputs.dir projectDirectory
             doLast {
-                String distributionBinPath = project.projectDir.absolutePath + "/build/jballerina-tools-${project.extensions.ballerina.langVersion}/bin"
-                String packageName = project.extensions.ballerina.module
+                String distributionBinPath = project.projectDir.absolutePath + "/build/jballerina-tools-${ballerinaExtension.langVersion}/bin"
+                String packageName = ballerinaExtension.module
                 String balaVersion
-                if (project.extensions.ballerina.customTomlVersion == null) {
+                if (ballerinaExtension.customTomlVersion == null) {
                     balaVersion = tomlVersion
                 } else {
-                    balaVersion = project.extensions.ballerina.customTomlVersion
+                    balaVersion = ballerinaExtension.customTomlVersion
                 }
 
-                if (project.extensions.ballerina.platform != null) {
-                    platform = project.extensions.ballerina.platform
+                if (ballerinaExtension.platform != null) {
+                    platform = ballerinaExtension.platform
                 }
 
-                if (project.extensions.ballerina.packageOrganization == null) {
+                if (ballerinaExtension.packageOrganization == null) {
                     packageOrg = 'ballerina'
                 } else {
-                    packageOrg = project.extensions.ballerina.packageOrganization
+                    packageOrg = ballerinaExtension.packageOrganization
                 }
                 if (needBuildWithTest) {
                     // Pack bala first
                     project.exec {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                        if (checkForBreakingChanges) {
+                        if (buildOnDocker || ballerinaExtension.buildOnDockerImage) {
+                            String dockerTag = ballerinaExtension.buildOnDockerImage
+                            if (dockerTag != null && dockerTag != '') {
+                                ballerinaDockerTag = dockerTag
+                            }
                             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                                 commandLine 'cmd', '/c', "docker run --rm --net=host  --user \$(id -u):\$(id -g) -v $project.projectDir/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:$ballerinaDockerTag $balJavaDebugParam bal pack --target-dir ${balBuildTarget} ${debugParams}"
                             } else {
@@ -289,7 +296,11 @@ class BallerinaPlugin implements Plugin<Project> {
                         project.exec {
                             workingDir project.projectDir
                             environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                            if (checkForBreakingChanges) {
+                            if (buildOnDocker || ballerinaExtension.buildOnDockerImage) {
+                                String dockerTag = ballerinaExtension.buildOnDockerImage
+                                if (dockerTag != null && dockerTag != '') {
+                                    ballerinaDockerTag = dockerTag
+                                }
                                 if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                                     commandLine 'cmd', '/c', "docker run --rm --net=host  --user \$(id -u):\$(id -g) -v $project.projectDir/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:$ballerinaDockerTag $balJavaDebugParam bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                                 } else {
@@ -334,7 +345,7 @@ class BallerinaPlugin implements Plugin<Project> {
                             throw new InvalidUserDataException('Central Access Token is not present')
                         }
                     } else if (needPublishToLocalCentral) {
-                        println('Publishing to the ballerina local central repository..')
+                        logger.info('Publishing to the ballerina local central repository..')
                         project.exec {
                             workingDir project.projectDir
                             environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
@@ -362,11 +373,11 @@ class BallerinaPlugin implements Plugin<Project> {
             finalizedBy(project.commitTomlFiles)
             doLast {
                 if (needSeparateTest) {
-                    String distributionBinPath = project.projectDir.absolutePath + "/build/jballerina-tools-${project.extensions.ballerina.langVersion}/bin"
+                    String distributionBinPath = project.projectDir.absolutePath + "/build/jballerina-tools-${ballerinaExtension.langVersion}/bin"
                     project.exec {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                        if (checkForBreakingChanges) {
+                        if (buildOnDocker || ballerinaExtension.buildOnDockerImage) {
                              if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                                     commandLine 'cmd', '/c', "docker run --rm --net=host --user \$(id -u):\$(id -g) -v ${project.projectDir}/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:$ballerinaDockerTag bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                                 } else {
