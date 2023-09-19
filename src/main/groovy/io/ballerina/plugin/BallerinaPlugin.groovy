@@ -113,7 +113,7 @@ class BallerinaPlugin implements Plugin<Project> {
                 println("[Warning] skipping downloading jBallerinaTools dependency: project uses docker to build the module")
             } else {
                 if (ballerinaExtension.langVersion == null) {
-                    jbalTools("org.ballerinalang:jballerina-tools:${project.ballerinaLangVersion}") {
+                    jbalTools("org.ballerinalang:jballerina-tools:${ballerinaExtension.langVersion}") {
                         transitive = false
                     }
                 } else {
@@ -181,7 +181,7 @@ class BallerinaPlugin implements Plugin<Project> {
                     project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
                         def artifactExtractedPath = "${project.buildDir}/extracted-stdlibs/" + artifact.name + '-zip'
                         project.copy {
-                            def ballerinaDist = "build/jballerina-tools-${project.ballerinaLangVersion}"
+                            def ballerinaDist = "build/jballerina-tools-${ballerinaExtension.langVersion}"
                             into ballerinaDist
                             into('repo/bala') {
                                 from "${artifactExtractedPath}/bala"
@@ -268,7 +268,6 @@ class BallerinaPlugin implements Plugin<Project> {
 
             inputs.dir projectDirectory
             doLast {
-                String distributionBinPath = project.projectDir.absolutePath + "/build/jballerina-tools-${ballerinaExtension.langVersion}/bin"
                 String packageName = ballerinaExtension.module
                 String balaVersion
                 if (ballerinaExtension.customTomlVersion == null) {
@@ -301,10 +300,13 @@ class BallerinaPlugin implements Plugin<Project> {
                             } else {
                                 commandLine 'sh', '-c', "docker run --rm --net=host  --user \$(id -u):\$(id -g) -v $project.projectDir/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:$ballerinaDockerTag $balJavaDebugParam bal pack --target-dir ${balBuildTarget} ${debugParams}"
                             }
-                        } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat pack --target-dir ${balBuildTarget} --offline ${debugParams} && exit %%ERRORLEVEL%%"
                         } else {
-                            commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal pack --target-dir ${balBuildTarget} --offline ${debugParams}"
+                            String distributionBinPath = project.projectDir.absolutePath + "/build/jballerina-tools-${ballerinaExtension.langVersion}/bin"
+                            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                                commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat pack --target-dir ${balBuildTarget} --offline ${debugParams} && exit %%ERRORLEVEL%%"
+                            } else {
+                                commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal pack --target-dir ${balBuildTarget} --offline ${debugParams}"
+                            }
                         }
                     }
                     // Run tests
@@ -389,7 +391,6 @@ class BallerinaPlugin implements Plugin<Project> {
             finalizedBy(project.commitTomlFiles)
             doLast {
                 if (needSeparateTest) {
-                    String distributionBinPath = project.projectDir.absolutePath + "/build/jballerina-tools-${ballerinaExtension.langVersion}/bin"
                     project.exec {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
@@ -399,10 +400,13 @@ class BallerinaPlugin implements Plugin<Project> {
                             } else {
                                 commandLine 'sh', '-c', "docker run --rm --net=host --user \$(id -u):\$(id -g) -v ${project.projectDir}/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:$ballerinaDockerTag bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                             }
-                        } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "${balJavaDebugParam} ${distributionBinPath}/bal.bat test --offline ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
                         } else {
-                            commandLine 'sh', '-c', "${balJavaDebugParam} ${distributionBinPath}/bal test --offline ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                            String distributionBinPath = project.projectDir.absolutePath + "/build/jballerina-tools-${ballerinaExtension.langVersion}/bin"
+                            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                                commandLine 'cmd', '/c', "${balJavaDebugParam} ${distributionBinPath}/bal.bat test --offline ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
+                            } else {
+                                commandLine 'sh', '-c', "${balJavaDebugParam} ${distributionBinPath}/bal test --offline ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                            }
                         }
                     }
                 }
