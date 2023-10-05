@@ -297,12 +297,13 @@ class BallerinaPlugin implements Plugin<Project> {
                                 ballerinaDockerTag = dockerTag
                             }
                             def balPackWithDocker = """
-                                docker run --rm --net=host --user ballerina:\$(id -g) \
+                                docker run --rm --net=host --user \$(id -u):\$(id -g) \
                                     -v $parentDirectory:/home/ballerina/$parentDirectory.name \
                                     -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
-                                    -w /home/ballerina/$parentDirectory.name/$projectDirectory.name \
-                                    ballerina/ballerina:$ballerinaDockerTag $balJavaDebugParam \
-                                    bal pack --target-dir ${balBuildTarget} ${debugParams}
+                                    -w /home/ballerina \
+                                    ballerina/ballerina:$ballerinaDockerTag \
+                                    /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name" && \
+                                    $balJavaDebugParam bal pack --target-dir ${balBuildTarget} ${debugParams}
                             """
                             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                                 commandLine 'cmd', '/c', "$balPackWithDocker"
@@ -329,11 +330,12 @@ class BallerinaPlugin implements Plugin<Project> {
                                     ballerinaDockerTag = dockerTag
                                 }
                                 def balTestWithDocker = """
-                                    docker run --rm --net=host --user ballerina:\$(id -g) \
+                                    docker run --rm --net=host --user \$(id -u):\$(id -g) \
                                         -v $parentDirectory:/home/ballerina/$parentDirectory.name \
                                         -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
-                                        -w /home/ballerina/$parentDirectory.name/$projectDirectory.name \
+                                        -w /home/ballerina \
                                         ballerina/ballerina:$ballerinaDockerTag \
+                                        /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name" && \
                                         bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}
                                 """
                                 if (Os.isFamily(Os.FAMILY_WINDOWS)) {
@@ -412,11 +414,12 @@ class BallerinaPlugin implements Plugin<Project> {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                         def balTestWithDocker = """
-                            docker run --rm --net=host --user ballerina:\$(id -g) \
+                            docker run --rm --net=host --user \$(id -u):\$(id -g) \
                                 -v $parentDirectory:/home/ballerina/$parentDirectory.name \
                                 -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
-                                -w /home/ballerina/$parentDirectory.name/$projectDirectory.name \
+                                -w /home/ballerina \
                                 ballerina/ballerina:$ballerinaDockerTag \
+                                /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name" && \
                                 bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}
                         """
                         if (buildOnDocker) {
