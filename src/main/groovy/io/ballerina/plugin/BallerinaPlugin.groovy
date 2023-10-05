@@ -49,6 +49,7 @@ class BallerinaPlugin implements Plugin<Project> {
         def balBuildTarget = 'build/bal_build_target'
         def balaArtifact = new File("$project.projectDir/build/bala_unzipped/")
         def projectDirectory = new File("$project.projectDir")
+        def parentDirectory = new File("$projectDirectory.parent")
         def ballerinaCentralAccessToken = System.getenv('BALLERINA_CENTRAL_ACCESS_TOKEN')
         def groupParams = ''
         def disableGroups = ''
@@ -295,10 +296,18 @@ class BallerinaPlugin implements Plugin<Project> {
                             if (dockerTag != null && dockerTag != '') {
                                 ballerinaDockerTag = dockerTag
                             }
+                            def balPackWithDocker = """
+                                docker run --rm --net=host --user ballerina:\$(id -g) \
+                                    -v $parentDirectory:/home/ballerina/$parentDirectory.name \
+                                    -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
+                                    -w /home/ballerina/$parentDirectory.name/$projectDirectory.name \
+                                    ballerina/ballerina:$ballerinaDockerTag $balJavaDebugParam \
+                                    bal pack --target-dir ${balBuildTarget} ${debugParams}
+                            """
                             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                commandLine 'cmd', '/c', "docker run --rm --net=host  --user \$(id -u):\$(id -g) -v $project.projectDir/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:$ballerinaDockerTag $balJavaDebugParam bal pack --target-dir ${balBuildTarget} ${debugParams}"
+                                commandLine 'cmd', '/c', "$balPackWithDocker"
                             } else {
-                                commandLine 'sh', '-c', "docker run --rm --net=host  --user \$(id -u):\$(id -g) -v $project.projectDir/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:$ballerinaDockerTag $balJavaDebugParam bal pack --target-dir ${balBuildTarget} ${debugParams}"
+                                commandLine 'sh', '-c', "$balPackWithDocker"
                             }
                         } else {
                             String distributionBinPath = project.projectDir.absolutePath + "/build/jballerina-tools-${ballerinaExtension.langVersion}/bin"
@@ -319,10 +328,18 @@ class BallerinaPlugin implements Plugin<Project> {
                                 if (dockerTag != null && dockerTag != '') {
                                     ballerinaDockerTag = dockerTag
                                 }
+                                def balTestWithDocker = """
+                                    docker run --rm --net=host --user ballerina:\$(id -g) \
+                                        -v $parentDirectory:/home/ballerina/$parentDirectory.name \
+                                        -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
+                                        -w /home/ballerina/$parentDirectory.name/$projectDirectory.name \
+                                        ballerina/ballerina:$ballerinaDockerTag \
+                                        bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}
+                                """
                                 if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                    commandLine 'cmd', '/c', "docker run --rm --net=host  --user \$(id -u):\$(id -g) -v $project.projectDir/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:$ballerinaDockerTag $balJavaDebugParam bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                                    commandLine 'cmd', '/c', "$balTestWithDocker"
                                 } else {
-                                    commandLine 'sh', '-c', "docker run --rm --net=host  --user \$(id -u):\$(id -g) -v $project.projectDir/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:$ballerinaDockerTag $balJavaDebugParam bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                                    commandLine 'sh', '-c', "$balTestWithDocker"
                                 }
                             } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                                 commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat test --offline ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
@@ -394,11 +411,19 @@ class BallerinaPlugin implements Plugin<Project> {
                     project.exec {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
+                        def balTestWithDocker = """
+                            docker run --rm --net=host --user ballerina:\$(id -g) \
+                                -v $parentDirectory:/home/ballerina/$parentDirectory.name \
+                                -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
+                                -w /home/ballerina/$parentDirectory.name/$projectDirectory.name \
+                                ballerina/ballerina:$ballerinaDockerTag \
+                                bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}
+                        """
                         if (buildOnDocker) {
                             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                commandLine 'cmd', '/c', "docker run --rm --net=host --user \$(id -u):\$(id -g) -v ${project.projectDir}/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:$ballerinaDockerTag bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                                commandLine 'cmd', '/c', "$balTestWithDocker"
                             } else {
-                                commandLine 'sh', '-c', "docker run --rm --net=host --user \$(id -u):\$(id -g) -v ${project.projectDir}/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:$ballerinaDockerTag bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                                commandLine 'sh', '-c', "$balTestWithDocker"
                             }
                         } else {
                             String distributionBinPath = project.projectDir.absolutePath + "/build/jballerina-tools-${ballerinaExtension.langVersion}/bin"
