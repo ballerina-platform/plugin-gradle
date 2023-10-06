@@ -296,8 +296,9 @@ class BallerinaPlugin implements Plugin<Project> {
                             if (dockerTag != null && dockerTag != '') {
                                 ballerinaDockerTag = dockerTag
                             }
+                            createDockerEnvFile("$project.projectDir/docker.env")
                             def balPackWithDocker = """
-                                docker run --rm --net=host --user root \
+                                docker run --env-file $project.projectDir/docker.env --rm --net=host --user root \
                                     -v $parentDirectory:/home/ballerina/$parentDirectory.name \
                                     -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
                                     ballerina/ballerina:$ballerinaDockerTag \
@@ -329,7 +330,7 @@ class BallerinaPlugin implements Plugin<Project> {
                                     ballerinaDockerTag = dockerTag
                                 }
                                 def balTestWithDocker = """
-                                    docker run --rm --net=host --user root \
+                                    docker run --env-file $project.projectDir/docker.env --rm --net=host --user root \
                                         -v $parentDirectory:/home/ballerina/$parentDirectory.name \
                                         -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
                                         ballerina/ballerina:$ballerinaDockerTag \
@@ -370,7 +371,25 @@ class BallerinaPlugin implements Plugin<Project> {
                             project.exec {
                                 workingDir project.projectDir
                                 environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                                if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                                if (buildOnDocker) {
+                                    String dockerTag = ballerinaExtension.buildOnDockerImage
+                                    if (dockerTag != null && dockerTag != '') {
+                                        ballerinaDockerTag = dockerTag
+                                    }
+                                    def balPushWithDocker = """
+                                        docker run --rm --net=host --user root \
+                                            -v $parentDirectory:/home/ballerina/$parentDirectory.name \
+                                            -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
+                                            ballerina/ballerina:$ballerinaDockerTag \
+                                            /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
+                                            bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala"
+                                    """
+                                    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                                        commandLine 'cmd', '/c', "$balPushWithDocker"
+                                    } else {
+                                        commandLine 'sh', '-c', "$balPushWithDocker"
+                                    } 
+                                } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                                     commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala && exit %%ERRORLEVEL%%"
                                 } else {
                                     commandLine 'sh', '-c', "$distributionBinPath/bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala"
@@ -393,7 +412,13 @@ class BallerinaPlugin implements Plugin<Project> {
                     }
                 }
             }
-
+            doLast {
+                project.exec {
+                    if (buildOnDocker) {
+                        deleteFile("$project.projectDir/docker.env")
+                    }
+                }
+            }
             outputs.dir balaArtifact
         }
 
@@ -411,15 +436,16 @@ class BallerinaPlugin implements Plugin<Project> {
                     project.exec {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                        def balTestWithDocker = """
-                            docker run --rm --net=host --user root \
-                                -v $parentDirectory:/home/ballerina/$parentDirectory.name \
-                                -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
-                                ballerina/ballerina:$ballerinaDockerTag \
-                                /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
-                                bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
-                        """
                         if (buildOnDocker) {
+                            createDockerEnvFile("$project.projectDir/docker.env")
+                            def balTestWithDocker = """
+                                docker run --env-file $project.projectDir/docker.env --rm --net=host --user root \
+                                    -v $parentDirectory:/home/ballerina/$parentDirectory.name \
+                                    -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
+                                    ballerina/ballerina:$ballerinaDockerTag \
+                                    /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
+                                    bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                            """
                             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                                 commandLine 'cmd', '/c', "$balTestWithDocker"
                             } else {
@@ -436,6 +462,13 @@ class BallerinaPlugin implements Plugin<Project> {
                     }
                 }
             }
+            doLast {
+                project.exec {
+                    if (buildOnDocker) {
+                        deleteFile("$project.projectDir/docker.env")
+                    }
+                }
+            }
         }
 
         project.tasks.register('clean', Delete.class) {
@@ -445,4 +478,22 @@ class BallerinaPlugin implements Plugin<Project> {
         }
     }
 
+    static void createDockerEnvFile(String dockerEnvFilePath) {
+        def dockerEnvFileWriter = new PrintWriter("$dockerEnvFilePath", "UTF-8")
+        def excludedVariables = ["PATH", "JAVA_HOME", "HOME"]
+        def envVariables = System.getenv()
+        envVariables.each { key, value ->
+            if (!excludedVariables.contains(key)) {
+                dockerEnvFileWriter.println("$key=$value")
+            }
+        }
+        dockerEnvFileWriter.close()
+    }
+
+    static void deleteFile(String filePath) {
+        def file = new File(filePath)
+        if (file.exists() && !file.delete()) {
+            println("Failed to delete $filePath.")
+        }       
+    }
 }
