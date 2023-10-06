@@ -413,10 +413,8 @@ class BallerinaPlugin implements Plugin<Project> {
                 }
             }
             doLast {
-                project.exec {
-                    if (buildOnDocker) {
-                        deleteFile("$project.projectDir/docker.env")
-                    }
+                if (buildOnDocker) {
+                    deleteFile("$project.projectDir/docker.env")
                 }
             }
             outputs.dir balaArtifact
@@ -463,10 +461,8 @@ class BallerinaPlugin implements Plugin<Project> {
                 }
             }
             doLast {
-                project.exec {
-                    if (buildOnDocker) {
-                        deleteFile("$project.projectDir/docker.env")
-                    }
+                if (buildOnDocker) {
+                    deleteFile("$project.projectDir/docker.env")
                 }
             }
         }
