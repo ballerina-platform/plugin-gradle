@@ -371,7 +371,25 @@ class BallerinaPlugin implements Plugin<Project> {
                             project.exec {
                                 workingDir project.projectDir
                                 environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                                if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                                if (buildOnDocker) {
+                                    String dockerTag = ballerinaExtension.buildOnDockerImage
+                                    if (dockerTag != null && dockerTag != '') {
+                                        ballerinaDockerTag = dockerTag
+                                    }
+                                    def balPushWithDocker = """
+                                        docker run --rm --net=host --user root \
+                                            -v $parentDirectory:/home/ballerina/$parentDirectory.name \
+                                            -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
+                                            ballerina/ballerina:$ballerinaDockerTag \
+                                            /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
+                                            bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala"
+                                    """
+                                    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                                        commandLine 'cmd', '/c', "$balPushWithDocker"
+                                    } else {
+                                        commandLine 'sh', '-c', "$balPushWithDocker"
+                                    } 
+                                } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                                     commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala && exit %%ERRORLEVEL%%"
                                 } else {
                                     commandLine 'sh', '-c', "$distributionBinPath/bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala"
