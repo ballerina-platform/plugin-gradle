@@ -377,7 +377,7 @@ class BallerinaPlugin implements Plugin<Project> {
                                         ballerinaDockerTag = dockerTag
                                     }
                                     def balPushWithDocker = """
-                                        docker run --rm --net=host --user root \
+                                        docker run --env-file $project.projectDir/docker.env --rm --net=host --user root \
                                             -v $parentDirectory:/home/ballerina/$parentDirectory.name \
                                             -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
                                             ballerina/ballerina:$ballerinaDockerTag \
