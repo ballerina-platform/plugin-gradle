@@ -468,9 +468,28 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.tasks.register('clean', Delete.class) {
-            delete "$project.projectDir/target"
-            delete "$project.projectDir/build"
-            delete "$project.rootDir/target"
+            doLast {
+                if (buildOnDocker) {
+                    project.exec {
+                        def deleteUsingDocker = """
+                            docker run --user root \
+                                -v $parentDirectory:/home/ballerina/$parentDirectory.name \
+                                -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
+                                ballerina/ballerina:$ballerinaDockerTag \
+                                /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && rm -rf build target"
+                        """
+                        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                            commandLine 'cmd', '/c', "$deleteUsingDocker"
+                        } else {
+                            commandLine 'sh', '-c', "$deleteUsingDocker"
+                        }
+                    }
+                } else {
+                    delete "$project.projectDir/target"
+                    delete "$project.projectDir/build"
+                }
+                delete "$project.rootDir/target"
+            }
         }
     }
 
