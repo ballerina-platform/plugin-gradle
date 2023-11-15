@@ -64,6 +64,7 @@ class BallerinaPlugin implements Plugin<Project> {
         def graalvmFlag = ''
         def buildOnDocker = false
         def ballerinaDockerTag = ''
+        def distributionBinPath = project.projectDir.absolutePath + "/build/jballerina-tools-${ballerinaExtension.langVersion}/bin"
 
         if (project.version.matches(project.ext.timestampedVersionRegex)) {
             def splitVersion = project.version.split('-')
@@ -311,7 +312,6 @@ class BallerinaPlugin implements Plugin<Project> {
                                 commandLine 'sh', '-c', "$balPackWithDocker"
                             }
                         } else {
-                            String distributionBinPath = project.projectDir.absolutePath + "/build/jballerina-tools-${ballerinaExtension.langVersion}/bin"
                             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                                 commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat pack --target-dir ${balBuildTarget} --offline ${debugParams} && exit %%ERRORLEVEL%%"
                             } else {
@@ -450,7 +450,6 @@ class BallerinaPlugin implements Plugin<Project> {
                                 commandLine 'sh', '-c', "$balTestWithDocker"
                             }
                         } else {
-                            String distributionBinPath = project.projectDir.absolutePath + "/build/jballerina-tools-${ballerinaExtension.langVersion}/bin"
                             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                                 commandLine 'cmd', '/c', "${balJavaDebugParam} ${distributionBinPath}/bal.bat test --offline ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
                             } else {
