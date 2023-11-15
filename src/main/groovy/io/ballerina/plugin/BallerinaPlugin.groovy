@@ -298,7 +298,7 @@ class BallerinaPlugin implements Plugin<Project> {
                             }
                             createDockerEnvFile("$project.projectDir/docker.env")
                             def balPackWithDocker = """
-                                docker run --env-file $project.projectDir/docker.env --rm --net=host --user root \
+                                docker run --env-file $project.projectDir/docker.env --rm --net=host --user 1000:1000 \
                                     -v $parentDirectory:/home/ballerina/$parentDirectory.name \
                                     -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
                                     ballerina/ballerina:$ballerinaDockerTag \
@@ -330,7 +330,7 @@ class BallerinaPlugin implements Plugin<Project> {
                                     ballerinaDockerTag = dockerTag
                                 }
                                 def balTestWithDocker = """
-                                    docker run --env-file $project.projectDir/docker.env --rm --net=host --user root \
+                                    docker run --env-file $project.projectDir/docker.env --rm --net=host --user 1000:1000 \
                                         -v $parentDirectory:/home/ballerina/$parentDirectory.name \
                                         -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
                                         ballerina/ballerina:$ballerinaDockerTag \
@@ -377,7 +377,7 @@ class BallerinaPlugin implements Plugin<Project> {
                                         ballerinaDockerTag = dockerTag
                                     }
                                     def balPushWithDocker = """
-                                        docker run --env-file $project.projectDir/docker.env --rm --net=host --user root \
+                                        docker run --env-file $project.projectDir/docker.env --rm --net=host --user 1000:1000 \
                                             -v $parentDirectory:/home/ballerina/$parentDirectory.name \
                                             -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
                                             ballerina/ballerina:$ballerinaDockerTag \
@@ -388,7 +388,7 @@ class BallerinaPlugin implements Plugin<Project> {
                                         commandLine 'cmd', '/c', "$balPushWithDocker"
                                     } else {
                                         commandLine 'sh', '-c', "$balPushWithDocker"
-                                    } 
+                                    }
                                 } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                                     commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala && exit %%ERRORLEVEL%%"
                                 } else {
@@ -437,7 +437,7 @@ class BallerinaPlugin implements Plugin<Project> {
                         if (buildOnDocker) {
                             createDockerEnvFile("$project.projectDir/docker.env")
                             def balTestWithDocker = """
-                                docker run --env-file $project.projectDir/docker.env --rm --net=host --user root \
+                                docker run --env-file $project.projectDir/docker.env --rm --net=host --user 1000:1000 \
                                     -v $parentDirectory:/home/ballerina/$parentDirectory.name \
                                     -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
                                     ballerina/ballerina:$ballerinaDockerTag \
@@ -472,7 +472,7 @@ class BallerinaPlugin implements Plugin<Project> {
                 if (buildOnDocker) {
                     project.exec {
                         def deleteUsingDocker = """
-                            docker run --user root \
+                            docker run --user 1000:1000 \
                                 -v $parentDirectory:/home/ballerina/$parentDirectory.name \
                                 -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
                                 ballerina/ballerina:$ballerinaDockerTag \
@@ -509,6 +509,6 @@ class BallerinaPlugin implements Plugin<Project> {
         def file = new File(filePath)
         if (file.exists() && !file.delete()) {
             println("Failed to delete $filePath.")
-        }       
+        }
     }
 }
