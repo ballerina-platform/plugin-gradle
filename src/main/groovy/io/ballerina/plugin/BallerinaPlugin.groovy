@@ -30,11 +30,11 @@ class BallerinaExtension {
 
     String module
     String langVersion
-    String buildOnDockerImage
     String testCoverageParam
     String packageOrganization
     String customTomlVersion
     String platform
+    boolean isConnector = false
 }
 
 class BallerinaPlugin implements Plugin<Project> {
@@ -76,27 +76,6 @@ class BallerinaPlugin implements Plugin<Project> {
             }
         } else {
             tomlVersion = project.version.replace("${project.ext.snapshotVersion}", '')
-        }
-
-        project.afterEvaluate {
-            if (ballerinaExtension.buildOnDockerImage != null) {
-                buildOnDocker = true
-                ballerinaDockerTag = ballerinaExtension.buildOnDockerImage
-            }
-
-            if (project.hasProperty('buildUsingDocker')) {
-                buildOnDocker = true
-                ballerinaDockerTag = project.findProperty('buildUsingDocker')
-            }
-
-            if (ballerinaDockerTag == '') {
-                ballerinaDockerTag = 'nightly'
-            }
-
-            if (buildOnDocker) {
-                println("[Info] project builds on docker: $buildOnDocker")
-                println("[Info] using the Ballerina docker image tag: $ballerinaDockerTag")
-            }
         }
 
         project.configurations {
@@ -208,6 +187,13 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.tasks.register('initializeVariables') {
+            if (ballerinaExtension.isConnector || project.hasProperty('buildUsingDocker')) {
+                buildOnDocker = true
+                ballerinaDockerTag = getDockerImageTag(project)
+                println("[Info] project builds on docker")
+                println("[Info] using the Ballerina docker image tag: $ballerinaDockerTag")
+            }
+
             String packageName = ballerinaExtension.module
             String organization
             if (ballerinaExtension.packageOrganization == null) {
@@ -293,10 +279,6 @@ class BallerinaPlugin implements Plugin<Project> {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                         if (buildOnDocker) {
-                            String dockerTag = ballerinaExtension.buildOnDockerImage
-                            if (dockerTag != null && dockerTag != '') {
-                                ballerinaDockerTag = dockerTag
-                            }
                             createDockerEnvFile("$project.projectDir/docker.env")
                             def balPackWithDocker = """
                                 docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
@@ -325,10 +307,6 @@ class BallerinaPlugin implements Plugin<Project> {
                             workingDir project.projectDir
                             environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                             if (buildOnDocker) {
-                                String dockerTag = ballerinaExtension.buildOnDockerImage
-                                if (dockerTag != null && dockerTag != '') {
-                                    ballerinaDockerTag = dockerTag
-                                }
                                 def balTestWithDocker = """
                                     docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
                                         -v $parentDirectory:/home/ballerina/$parentDirectory.name \
@@ -372,10 +350,6 @@ class BallerinaPlugin implements Plugin<Project> {
                                 workingDir project.projectDir
                                 environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                                 if (buildOnDocker) {
-                                    String dockerTag = ballerinaExtension.buildOnDockerImage
-                                    if (dockerTag != null && dockerTag != '') {
-                                        ballerinaDockerTag = dockerTag
-                                    }
                                     def balPushWithDocker = """
                                         docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
                                             -v $parentDirectory:/home/ballerina/$parentDirectory.name \
@@ -509,5 +483,23 @@ class BallerinaPlugin implements Plugin<Project> {
         if (file.exists() && !file.delete()) {
             println("Failed to delete $filePath.")
         }
+    }
+
+    static String getDockerImageTag(Project project) {
+        def ballerinaDockerTag = project.findProperty('ballerinaLangVersion')
+        if (project.hasProperty('buildUsingDocker')) {
+            ballerinaDockerTag = project.findProperty('buildUsingDocker')
+            if (ballerinaDockerTag == '') {
+                return 'nightly'
+            }
+        }
+        if (isTimeStampVersion(ballerinaDockerTag)) {
+            return 'nightly'
+        }
+        return ballerinaDockerTag
+    }
+
+    static boolean isTimeStampVersion(String version) {
+        return version.trim().split("-").length > 1
     }
 }
