@@ -79,7 +79,7 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.afterEvaluate {
-            if (ballerinaExtension.isConnector == true) {
+            if (ballerinaExtension.isConnector) {
                 buildOnDocker = true
                 ballerinaDockerTag = getDockerImageTag(project)
             }
