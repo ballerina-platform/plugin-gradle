@@ -64,7 +64,7 @@ class BallerinaPlugin implements Plugin<Project> {
         def graalvmFlag = ''
         def buildOnDocker = false
         def ballerinaDockerTag = ''
-        def distributionBinPath = project.projectDir.absolutePath + "/build/jballerina-tools-${ballerinaExtension.langVersion}/bin"
+        def distributionBinPath = ''
 
         if (project.version.matches(project.ext.timestampedVersionRegex)) {
             def splitVersion = project.version.split('-')
@@ -222,6 +222,9 @@ class BallerinaPlugin implements Plugin<Project> {
             if (project.hasProperty('balGraalVMTest')) {
                 println("[Warning] disabled code coverage: running GraalVM tests")
                 graalvmFlag = '--graalvm'
+            }
+            if (!ballerinaExtension.isConnector) {
+                distributionBinPath = project.projectDir.absolutePath + "/build/jballerina-tools-${ballerinaExtension.langVersion}/bin"
             }
 
             project.gradle.taskGraph.whenReady { graph ->
