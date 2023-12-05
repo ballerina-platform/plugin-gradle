@@ -30,11 +30,11 @@ class BallerinaExtension {
 
     String module
     String langVersion
-    String buildOnDockerImage
     String testCoverageParam
     String packageOrganization
     String customTomlVersion
     String platform
+    boolean isConnector = false
 }
 
 class BallerinaPlugin implements Plugin<Project> {
@@ -79,18 +79,14 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.afterEvaluate {
-            if (ballerinaExtension.hasProperty('buildOnDockerImage') && ballerinaExtension.buildOnDockerImage.asType(boolean) == true) {
+            if (ballerinaExtension.isConnector == true) {
                 buildOnDocker = true
-                ballerinaDockerTag = extractVersion(project.findProperty('ballerinaLangVersion'))
+                ballerinaDockerTag = getDockerImageTag(project)
             }
 
             if (project.hasProperty('buildUsingDocker')) {
                 buildOnDocker = true
-                ballerinaDockerTag = project.findProperty('buildUsingDocker')
-            }
-
-            if (ballerinaDockerTag == '') {
-                ballerinaDockerTag = 'nightly'
+                ballerinaDockerTag = getDockerImageTag(project)
             }
 
             if (buildOnDocker) {
@@ -293,10 +289,7 @@ class BallerinaPlugin implements Plugin<Project> {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                         if (buildOnDocker) {
-                            String dockerTag = extractVersion(project.findProperty('ballerinaLangVersion'))
-                            if (dockerTag != null && dockerTag != '') {
-                                ballerinaDockerTag = dockerTag
-                            }
+                            ballerinaDockerTag = getDockerImageTag(project)
                             createDockerEnvFile("$project.projectDir/docker.env")
                             def balPackWithDocker = """
                                 docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
@@ -325,10 +318,7 @@ class BallerinaPlugin implements Plugin<Project> {
                             workingDir project.projectDir
                             environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                             if (buildOnDocker) {
-                                String dockerTag = extractVersion(project.findProperty('ballerinaLangVersion'))
-                                if (dockerTag != null && dockerTag != '') {
-                                    ballerinaDockerTag = dockerTag
-                                }
+                                ballerinaDockerTag = getDockerImageTag(project)
                                 def balTestWithDocker = """
                                     docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
                                         -v $parentDirectory:/home/ballerina/$parentDirectory.name \
@@ -372,10 +362,7 @@ class BallerinaPlugin implements Plugin<Project> {
                                 workingDir project.projectDir
                                 environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                                 if (buildOnDocker) {
-                                    String dockerTag = extractVersion(project.findProperty('ballerinaLangVersion'))
-                                    if (dockerTag != null && dockerTag != '') {
-                                        ballerinaDockerTag = dockerTag
-                                    }
+                                    ballerinaDockerTag = getDockerImageTag(project)
                                     def balPushWithDocker = """
                                         docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
                                             -v $parentDirectory:/home/ballerina/$parentDirectory.name \
@@ -511,7 +498,21 @@ class BallerinaPlugin implements Plugin<Project> {
         }
     }
 
-    static String extractVersion(String versionWithTimeStamp) {
-        return versionWithTimeStamp.trim().split("-")[0]
+    static String getDockerImageTag(Project project) {
+        def ballerinaDockerTag = project.findProperty('ballerinaLangVersion')
+        if (project.hasProperty('buildUsingDocker')) {
+            ballerinaDockerTag = project.findProperty('buildUsingDocker')
+            if (ballerinaDockerTag == '') {
+                return 'nightly'
+            }
+        }
+        if (isTimeStampVersion(ballerinaDockerTag)) {
+            return 'nightly'
+        }
+        return ballerinaDockerTag
+    }
+
+    static boolean isTimeStampVersion(String version) {
+        return version.trim().split("-").length > 1
     }
 }
