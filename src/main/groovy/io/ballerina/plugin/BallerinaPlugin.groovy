@@ -79,9 +79,9 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.afterEvaluate {
-            if (ballerinaExtension.buildOnDockerImage != null) {
+            if (ballerinaExtension.hasProperty('buildOnDockerImage') && ballerinaExtension.buildOnDockerImage.asType(boolean) == true) {
                 buildOnDocker = true
-                ballerinaDockerTag = ballerinaExtension.buildOnDockerImage
+                ballerinaDockerTag = extractVersion(project.findProperty('ballerinaLangVersion'))
             }
 
             if (project.hasProperty('buildUsingDocker')) {
@@ -293,7 +293,7 @@ class BallerinaPlugin implements Plugin<Project> {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                         if (buildOnDocker) {
-                            String dockerTag = ballerinaExtension.buildOnDockerImage
+                            String dockerTag = extractVersion(project.findProperty('ballerinaLangVersion'))
                             if (dockerTag != null && dockerTag != '') {
                                 ballerinaDockerTag = dockerTag
                             }
@@ -325,7 +325,7 @@ class BallerinaPlugin implements Plugin<Project> {
                             workingDir project.projectDir
                             environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                             if (buildOnDocker) {
-                                String dockerTag = ballerinaExtension.buildOnDockerImage
+                                String dockerTag = extractVersion(project.findProperty('ballerinaLangVersion'))
                                 if (dockerTag != null && dockerTag != '') {
                                     ballerinaDockerTag = dockerTag
                                 }
@@ -372,7 +372,7 @@ class BallerinaPlugin implements Plugin<Project> {
                                 workingDir project.projectDir
                                 environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                                 if (buildOnDocker) {
-                                    String dockerTag = ballerinaExtension.buildOnDockerImage
+                                    String dockerTag = extractVersion(project.findProperty('ballerinaLangVersion'))
                                     if (dockerTag != null && dockerTag != '') {
                                         ballerinaDockerTag = dockerTag
                                     }
@@ -509,5 +509,9 @@ class BallerinaPlugin implements Plugin<Project> {
         if (file.exists() && !file.delete()) {
             println("Failed to delete $filePath.")
         }
+    }
+
+    static String extractVersion(String versionWithTimeStamp) {
+        return versionWithTimeStamp.trim().split("-")[0]
     }
 }
