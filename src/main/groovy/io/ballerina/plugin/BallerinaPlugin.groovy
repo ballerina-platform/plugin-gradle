@@ -56,8 +56,6 @@ class BallerinaPlugin implements Plugin<Project> {
         def debugParams = ''
         def balJavaDebugParam = ''
         def testCoverageParams = ''
-        def needSeparateTest = false
-        def needBuildWithTest = false
         def needPublishToCentral = false
         def needPublishToLocalCentral = false
         def skipTests = true
@@ -228,15 +226,6 @@ class BallerinaPlugin implements Plugin<Project> {
             }
 
             project.gradle.taskGraph.whenReady { graph ->
-                if (!(project.hasProperty('disable') || project.hasProperty('groups')) &&
-                        (graph.hasTask(":${packageName}-ballerina:build") ||
-                                graph.hasTask(":${packageName}-ballerina:publish") ||
-                                graph.hasTask(":${packageName}-ballerina:publishToMavenLocal"))) {
-                    needSeparateTest = false
-                    needBuildWithTest = true
-                } else {
-                    needSeparateTest = true
-                }
                 if (graph.hasTask(":${packageName}-ballerina:test")) {
                     if (!project.hasProperty('balGraalVMTest')) {
                         if (ballerinaExtension.testCoverageParam == null) {
@@ -276,123 +265,121 @@ class BallerinaPlugin implements Plugin<Project> {
                 } else {
                     packageOrg = ballerinaExtension.packageOrganization
                 }
-                if (needBuildWithTest) {
-                    // Pack bala first
+                // Pack bala first
+                project.exec {
+                    workingDir project.projectDir
+                    environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
+                    if (buildOnDocker) {
+                        createDockerEnvFile("$project.projectDir/docker.env")
+                        def balPackWithDocker = """
+                            docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
+                                -v $parentDirectory:/home/ballerina/$parentDirectory.name \
+                                -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
+                                ballerina/ballerina:$ballerinaDockerTag \
+                                /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
+                                $balJavaDebugParam bal pack --target-dir ${balBuildTarget} ${debugParams}"
+                        """
+                        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                            commandLine 'cmd', '/c', "$balPackWithDocker"
+                        } else {
+                            commandLine 'sh', '-c', "$balPackWithDocker"
+                        }
+                    } else {
+                        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                            commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat pack --target-dir ${balBuildTarget} --offline ${debugParams} && exit %%ERRORLEVEL%%"
+                        } else {
+                            commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal pack --target-dir ${balBuildTarget} --offline ${debugParams}"
+                        }
+                    }
+                }
+                // Run tests
+                if (!skipTests) {
                     project.exec {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                         if (buildOnDocker) {
-                            createDockerEnvFile("$project.projectDir/docker.env")
-                            def balPackWithDocker = """
+                            def balTestWithDocker = """
                                 docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
                                     -v $parentDirectory:/home/ballerina/$parentDirectory.name \
                                     -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
                                     ballerina/ballerina:$ballerinaDockerTag \
                                     /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
-                                    $balJavaDebugParam bal pack --target-dir ${balBuildTarget} ${debugParams}"
+                                    bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                             """
                             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                commandLine 'cmd', '/c', "$balPackWithDocker"
+                                commandLine 'cmd', '/c', "$balTestWithDocker"
                             } else {
-                                commandLine 'sh', '-c', "$balPackWithDocker"
+                                commandLine 'sh', '-c', "$balTestWithDocker"
                             }
+                        } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                            commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat test --offline ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
                         } else {
-                            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat pack --target-dir ${balBuildTarget} --offline ${debugParams} && exit %%ERRORLEVEL%%"
-                            } else {
-                                commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal pack --target-dir ${balBuildTarget} --offline ${debugParams}"
-                            }
+                            commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal test --offline ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                         }
+
                     }
-                    // Run tests
-                    if (!skipTests) {
+                }
+                // extract bala file to balaArtifact
+                new File("$project.projectDir/${balBuildTarget}/bala").eachFileMatch(~/.*.bala/) { balaFile ->
+                    project.copy {
+                        from project.zipTree(balaFile)
+                        into new File("$balaArtifact/bala/${packageOrg}/${packageName}/${balaVersion}/${platform}")
+                    }
+                }
+                project.copy {
+                    from "$balaArtifact/bala"
+                    into "${project.rootDir}/target/ballerina-runtime/repo/bala"
+                }
+                if (needPublishToCentral) {
+                    if (project.version.endsWith('-SNAPSHOT') ||
+                            project.version.matches(project.ext.timestampedVersionRegex)) {
+                        println("[Info] skipping publishing to central: project version is SNAPSHOT or Timestamped SNAPSHOT")
+                        return
+                    }
+                    if (ballerinaCentralAccessToken != null) {
                         project.exec {
                             workingDir project.projectDir
                             environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                             if (buildOnDocker) {
-                                def balTestWithDocker = """
+                                def balPushWithDocker = """
                                     docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
                                         -v $parentDirectory:/home/ballerina/$parentDirectory.name \
                                         -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
                                         ballerina/ballerina:$ballerinaDockerTag \
                                         /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
-                                        bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                                        bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala"
                                 """
                                 if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                    commandLine 'cmd', '/c', "$balTestWithDocker"
+                                    commandLine 'cmd', '/c', "$balPushWithDocker"
                                 } else {
-                                    commandLine 'sh', '-c', "$balTestWithDocker"
+                                    commandLine 'sh', '-c', "$balPushWithDocker"
                                 }
                             } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat test --offline ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
+                                commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala && exit %%ERRORLEVEL%%"
                             } else {
-                                commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal test --offline ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                                commandLine 'sh', '-c', "$distributionBinPath/bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala"
                             }
-
                         }
+                    } else {
+                        throw new InvalidUserDataException('Central Access Token is not present')
                     }
-                    // extract bala file to balaArtifact
-                    new File("$project.projectDir/${balBuildTarget}/bala").eachFileMatch(~/.*.bala/) { balaFile ->
-                        project.copy {
-                            from project.zipTree(balaFile)
-                            into new File("$balaArtifact/bala/${packageOrg}/${packageName}/${balaVersion}/${platform}")
-                        }
-                    }
-                    project.copy {
-                        from "$balaArtifact/bala"
-                        into "${project.rootDir}/target/ballerina-runtime/repo/bala"
-                    }
-                    if (needPublishToCentral) {
-                        if (project.version.endsWith('-SNAPSHOT') ||
-                                project.version.matches(project.ext.timestampedVersionRegex)) {
-                            println("[Info] skipping publishing to central: project version is SNAPSHOT or Timestamped SNAPSHOT")
-                            return
-                        }
-                        if (ballerinaCentralAccessToken != null) {
-                            project.exec {
-                                workingDir project.projectDir
-                                environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                                if (buildOnDocker) {
-                                    def balPushWithDocker = """
-                                        docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
-                                            -v $parentDirectory:/home/ballerina/$parentDirectory.name \
-                                            -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
-                                            ballerina/ballerina:$ballerinaDockerTag \
-                                            /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
-                                            bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala"
-                                    """
-                                    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                        commandLine 'cmd', '/c', "$balPushWithDocker"
-                                    } else {
-                                        commandLine 'sh', '-c', "$balPushWithDocker"
-                                    }
-                                } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                    commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala && exit %%ERRORLEVEL%%"
-                                } else {
-                                    commandLine 'sh', '-c', "$distributionBinPath/bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala"
-                                }
+                } else if (needPublishToLocalCentral) {
+                    println("[Info] Publishing to the ballerina local central repository")
+                    project.exec {
+                        workingDir project.projectDir
+                        environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
+                        if (!ballerinaExtension.isConnector) {
+                            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                                commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local && exit %%ERRORLEVEL%%"
+                            } else {
+                                commandLine 'sh', '-c', "$distributionBinPath/bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local"
                             }
                         } else {
-                            throw new InvalidUserDataException('Central Access Token is not present')
-                        }
-                    } else if (needPublishToLocalCentral) {
-                        println("[Info] Publishing to the ballerina local central repository")
-                        project.exec {
-                            workingDir project.projectDir
-                            environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                            if (!ballerinaExtension.isConnector) {
-                                if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                    commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local && exit %%ERRORLEVEL%%"
-                                } else {
-                                    commandLine 'sh', '-c', "$distributionBinPath/bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local"
-                                }
+                            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                                commandLine 'cmd', '/c', "bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local && exit %%ERRORLEVEL%%"
                             } else {
-                                if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                    commandLine 'cmd', '/c', "bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local && exit %%ERRORLEVEL%%"
-                                } else {
-                                    commandLine 'sh', '-c', "bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local"
-                                } 
-                            }
+                                commandLine 'sh', '-c', "bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local"
+                            } 
                         }
                     }
                 }
@@ -414,36 +401,6 @@ class BallerinaPlugin implements Plugin<Project> {
             dependsOn(project.initializeVariables)
             dependsOn(project.updateTomlFiles)
             finalizedBy(project.commitTomlFiles)
-            doLast {
-                if (needSeparateTest) {
-                    project.exec {
-                        workingDir project.projectDir
-                        environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                        if (buildOnDocker) {
-                            createDockerEnvFile("$project.projectDir/docker.env")
-                            def balTestWithDocker = """
-                                docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
-                                    -v $parentDirectory:/home/ballerina/$parentDirectory.name \
-                                    -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
-                                    ballerina/ballerina:$ballerinaDockerTag \
-                                    /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
-                                    bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
-                            """
-                            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                commandLine 'cmd', '/c', "$balTestWithDocker"
-                            } else {
-                                commandLine 'sh', '-c', "$balTestWithDocker"
-                            }
-                        } else {
-                            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                commandLine 'cmd', '/c', "${balJavaDebugParam} ${distributionBinPath}/bal.bat test --offline ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
-                            } else {
-                                commandLine 'sh', '-c', "${balJavaDebugParam} ${distributionBinPath}/bal test --offline ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
-                            }
-                        }
-                    }
-                }
-            }
             doLast {
                 if (buildOnDocker) {
                     deleteFile("$project.projectDir/docker.env")
