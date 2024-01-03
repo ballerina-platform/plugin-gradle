@@ -277,7 +277,7 @@ class BallerinaPlugin implements Plugin<Project> {
                                 -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
                                 ballerina/ballerina:$ballerinaDockerTag \
                                 /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
-                                $balJavaDebugParam bal pack --target-dir ${balBuildTarget} ${debugParams}"
+                                bal pack --target-dir ${balBuildTarget}"
                         """
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                             commandLine 'cmd', '/c', "$balPackWithDocker"
@@ -286,9 +286,9 @@ class BallerinaPlugin implements Plugin<Project> {
                         }
                     } else {
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat pack --target-dir ${balBuildTarget} --offline ${debugParams} && exit %%ERRORLEVEL%%"
+                            commandLine 'cmd', '/c', "$distributionBinPath/bal.bat pack --target-dir ${balBuildTarget} --offline && exit %%ERRORLEVEL%%"
                         } else {
-                            commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal pack --target-dir ${balBuildTarget} --offline ${debugParams}"
+                            commandLine 'sh', '-c', "$distributionBinPath/bal pack --target-dir ${balBuildTarget} --offline"
                         }
                     }
                 }
@@ -304,7 +304,7 @@ class BallerinaPlugin implements Plugin<Project> {
                                     -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
                                     ballerina/ballerina:$ballerinaDockerTag \
                                     /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
-                                    bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                                    $balJavaDebugParam bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                             """
                             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                                 commandLine 'cmd', '/c', "$balTestWithDocker"
