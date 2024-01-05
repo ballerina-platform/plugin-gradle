@@ -292,33 +292,6 @@ class BallerinaPlugin implements Plugin<Project> {
                         }
                     }
                 }
-                // Run tests
-                if (!skipTests) {
-                    project.exec {
-                        workingDir project.projectDir
-                        environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                        if (buildOnDocker) {
-                            def balTestWithDocker = """
-                                docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
-                                    -v $parentDirectory:/home/ballerina/$parentDirectory.name \
-                                    -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
-                                    ballerina/ballerina:$ballerinaDockerTag \
-                                    /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
-                                    $balJavaDebugParam bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
-                            """
-                            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                commandLine 'cmd', '/c', "$balTestWithDocker"
-                            } else {
-                                commandLine 'sh', '-c', "$balTestWithDocker"
-                            }
-                        } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat test --offline ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
-                        } else {
-                            commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal test --offline ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
-                        }
-
-                    }
-                }
                 // extract bala file to balaArtifact
                 new File("$project.projectDir/${balBuildTarget}/bala").eachFileMatch(~/.*.bala/) { balaFile ->
                     project.copy {
@@ -383,8 +356,6 @@ class BallerinaPlugin implements Plugin<Project> {
                         }
                     }
                 }
-            }
-            doLast {
                 if (buildOnDocker) {
                     deleteFile("$project.projectDir/docker.env")
                 }
@@ -402,6 +373,34 @@ class BallerinaPlugin implements Plugin<Project> {
             dependsOn(project.updateTomlFiles)
             finalizedBy(project.commitTomlFiles)
             doLast {
+                // Run tests
+                if (!skipTests) {
+                    project.exec {
+                        workingDir project.projectDir
+                        environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
+                        if (buildOnDocker) {
+                            createDockerEnvFile("$project.projectDir/docker.env")
+                            def balTestWithDocker = """
+                                docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
+                                    -v $parentDirectory:/home/ballerina/$parentDirectory.name \
+                                    -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
+                                    ballerina/ballerina:$ballerinaDockerTag \
+                                    /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
+                                    $balJavaDebugParam bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                            """
+                            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                                commandLine 'cmd', '/c', "$balTestWithDocker"
+                            } else {
+                                commandLine 'sh', '-c', "$balTestWithDocker"
+                            }
+                        } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                            commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat test --offline ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
+                        } else {
+                            commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal test --offline ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                        }
+
+                    }
+                }
                 if (buildOnDocker) {
                     deleteFile("$project.projectDir/docker.env")
                 }
