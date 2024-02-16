@@ -414,9 +414,8 @@ class BallerinaPlugin implements Plugin<Project> {
                         def deleteUsingDocker = """
                             docker run -u root \
                                 -v $parentDirectory:/home/ballerina/$parentDirectory.name \
-                                -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
                                 ballerina/ballerina:$ballerinaDockerTag \
-                                /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && rm -rf build target"
+                                /bin/sh -c "cd /home/ballerina/$parentDirectory.name && rm -rf build target ballerina/build ballerina/target" 
                         """
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                             commandLine 'cmd', '/c', "$deleteUsingDocker"
