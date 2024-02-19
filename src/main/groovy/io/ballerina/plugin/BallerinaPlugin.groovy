@@ -60,6 +60,7 @@ class BallerinaPlugin implements Plugin<Project> {
         def needPublishToLocalCentral = false
         def skipTests = true
         def graalvmFlag = ''
+        def parallelTestFlag = ''
         def checkForBreakingChanges = project.hasProperty('buildUsingDocker')
         def ballerinaDockerTag = project.findProperty('buildUsingDocker')
         if (ballerinaDockerTag == '') {
@@ -216,6 +217,9 @@ class BallerinaPlugin implements Plugin<Project> {
                 println("WARNING! testing with code-coverage is disabled for ballerina graalvm test")
                 graalvmFlag = '--graalvm'
             }
+            if (project.hasProperty('balParallelTest')) {
+                parallelTestFlag = '--parallel'
+            }
 
             project.gradle.taskGraph.whenReady { graph ->
                 if (!(project.hasProperty('disable') || project.hasProperty('groups')) &&
@@ -291,14 +295,14 @@ class BallerinaPlugin implements Plugin<Project> {
                             environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                             if (checkForBreakingChanges) {
                                 if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                    commandLine 'cmd', '/c', "docker run --rm --net=host  --user \$(id -u):\$(id -g) -v $project.projectDir/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:$ballerinaDockerTag $balJavaDebugParam bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                                    commandLine 'cmd', '/c', "docker run --rm --net=host  --user \$(id -u):\$(id -g) -v $project.projectDir/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:$ballerinaDockerTag $balJavaDebugParam bal test ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                                 } else {
-                                    commandLine 'sh', '-c', "docker run --rm --net=host  --user \$(id -u):\$(id -g) -v $project.projectDir/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:$ballerinaDockerTag $balJavaDebugParam bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                                    commandLine 'sh', '-c', "docker run --rm --net=host  --user \$(id -u):\$(id -g) -v $project.projectDir/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:$ballerinaDockerTag $balJavaDebugParam bal test ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                                 }
                             } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat test --offline ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
+                                commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat test --offline ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
                             } else {
-                                commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal test --offline ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                                commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal test --offline ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                             }
 
                         }
@@ -368,14 +372,14 @@ class BallerinaPlugin implements Plugin<Project> {
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                         if (checkForBreakingChanges) {
                              if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                    commandLine 'cmd', '/c', "docker run --rm --net=host --user \$(id -u):\$(id -g) -v ${project.projectDir}/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:$ballerinaDockerTag bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                                    commandLine 'cmd', '/c', "docker run --rm --net=host --user \$(id -u):\$(id -g) -v ${project.projectDir}/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:$ballerinaDockerTag bal test ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                                 } else {
-                                    commandLine 'sh', '-c', "docker run --rm --net=host --user \$(id -u):\$(id -g) -v ${project.projectDir}/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:$ballerinaDockerTag bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                                    commandLine 'sh', '-c', "docker run --rm --net=host --user \$(id -u):\$(id -g) -v ${project.projectDir}/..:/home -v $project.projectDir:/home/ballerina ballerina/ballerina:$ballerinaDockerTag bal test ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                                 }
                         } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "${balJavaDebugParam} ${distributionBinPath}/bal.bat test --offline ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
+                            commandLine 'cmd', '/c', "${balJavaDebugParam} ${distributionBinPath}/bal.bat test --offline ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
                         } else {
-                            commandLine 'sh', '-c', "${balJavaDebugParam} ${distributionBinPath}/bal test --offline ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                            commandLine 'sh', '-c', "${balJavaDebugParam} ${distributionBinPath}/bal test --offline ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                         }
                     }
                 }
