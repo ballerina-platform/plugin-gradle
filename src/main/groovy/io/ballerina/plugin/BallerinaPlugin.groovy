@@ -60,6 +60,7 @@ class BallerinaPlugin implements Plugin<Project> {
         def needPublishToLocalCentral = false
         def skipTests = true
         def graalvmFlag = ''
+        def parallelTestFlag = ''
         def buildOnDocker = false
         def ballerinaDockerTag = ''
         def distributionBinPath = ''
@@ -220,6 +221,9 @@ class BallerinaPlugin implements Plugin<Project> {
             if (project.hasProperty('balGraalVMTest')) {
                 println("[Warning] disabled code coverage: running GraalVM tests")
                 graalvmFlag = '--graalvm'
+            }
+            if (project.hasProperty('balParallelTest')) {
+                parallelTestFlag = '--parallel'
             }
             if (!ballerinaExtension.isConnector) {
                 distributionBinPath = project.projectDir.absolutePath + "/build/jballerina-tools-${ballerinaExtension.langVersion}/bin"
@@ -386,7 +390,7 @@ class BallerinaPlugin implements Plugin<Project> {
                                     -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
                                     ballerina/ballerina:$ballerinaDockerTag \
                                     /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
-                                    $balJavaDebugParam bal test ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                                    $balJavaDebugParam bal test ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                             """
                             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                                 commandLine 'cmd', '/c', "$balTestWithDocker"
@@ -394,9 +398,9 @@ class BallerinaPlugin implements Plugin<Project> {
                                 commandLine 'sh', '-c', "$balTestWithDocker"
                             }
                         } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat test --offline ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
+                            commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat test --offline ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
                         } else {
-                            commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal test --offline ${graalvmFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                            commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal test --offline ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                         }
 
                     }
