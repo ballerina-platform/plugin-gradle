@@ -412,27 +412,25 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.tasks.register('clean', Delete.class) {
-            doLast {
-                if (buildOnDocker) {
-                    project.exec {
-                        def deleteUsingDocker = """
-                            docker run -u root \
-                            -v $parentDirectory:/home/ballerina/$parentDirectory.name \
-                            ballerina/ballerina:$ballerinaDockerTag \
-                            /bin/sh -c "find /home/ballerina/$parentDirectory.name -type d -name 'build' -exec rm -rf {} + && find /home/ballerina/$parentDirectory.name -type d -name 'target' -exec rm -rf {} +"
-                        """
-                        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "$deleteUsingDocker"
-                        } else {
-                            commandLine 'sh', '-c', "$deleteUsingDocker"
-                        }
+            if (buildOnDocker) {
+                project.exec {
+                    def deleteUsingDocker = """
+                        docker run -u root \
+                        -v $parentDirectory:/home/ballerina/$parentDirectory.name \
+                        ballerina/ballerina:$ballerinaDockerTag \
+                        /bin/sh -c "find /home/ballerina/$parentDirectory.name -type d -name 'build' -exec rm -rf {} + && find /home/ballerina/$parentDirectory.name -type d -name 'target' -exec rm -rf {} +"
+                    """
+                    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                        commandLine 'cmd', '/c', "$deleteUsingDocker"
+                    } else {
+                        commandLine 'sh', '-c', "$deleteUsingDocker"
                     }
-                } else {
-                    delete "$project.projectDir/target"
-                    delete "$project.projectDir/build"
                 }
-                delete "$project.rootDir/target"
+            } else {
+                delete "$project.projectDir/target"
+                delete "$project.projectDir/build"
             }
+            delete "$project.rootDir/target"
         }
     }
 
