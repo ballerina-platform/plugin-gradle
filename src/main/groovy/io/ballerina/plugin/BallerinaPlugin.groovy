@@ -58,7 +58,6 @@ class BallerinaPlugin implements Plugin<Project> {
         def testCoverageParams = ''
         def needPublishToCentral = false
         def needPublishToLocalCentral = false
-        def skipTests = true
         def graalvmFlag = ''
         def parallelTestFlag = ''
         def buildOnDocker = false
@@ -229,16 +228,11 @@ class BallerinaPlugin implements Plugin<Project> {
                 distributionBinPath = project.projectDir.absolutePath + "/build/jballerina-tools-${ballerinaExtension.langVersion}/bin"
             }
 
-            project.gradle.taskGraph.whenReady { graph ->
-                if (graph.hasTask(":${packageName}-ballerina:test")) {
-                    if (!project.hasProperty('balGraalVMTest')) {
-                        if (ballerinaExtension.testCoverageParam == null) {
-                            testCoverageParams = "--code-coverage --coverage-format=xml --includes=io.ballerina.stdlib.${packageName}.*:${organization}.${packageName}.*"
-                        } else {
-                            testCoverageParams = ballerinaExtension.testCoverageParam
-                        }
-                    }
-                    skipTests = false;
+            if (!project.hasProperty('balGraalVMTest')) {
+                if (ballerinaExtension.testCoverageParam == null) {
+                    testCoverageParams = "--code-coverage --coverage-format=xml --includes=io.ballerina.stdlib.${packageName}.*:${organization}.${packageName}.*"
+                } else {
+                    testCoverageParams = ballerinaExtension.testCoverageParam
                 }
             }
         }
@@ -378,32 +372,30 @@ class BallerinaPlugin implements Plugin<Project> {
             finalizedBy(project.commitTomlFiles)
             doLast {
                 // Run tests
-                if (!skipTests) {
-                    project.exec {
-                        workingDir project.projectDir
-                        environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                        if (buildOnDocker) {
-                            createDockerEnvFile("$project.projectDir/docker.env")
-                            def balTestWithDocker = """
-                                docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
-                                    -v $parentDirectory:/home/ballerina/$parentDirectory.name \
-                                    -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
-                                    ballerina/ballerina:$ballerinaDockerTag \
-                                    /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
-                                    $balJavaDebugParam bal test ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
-                            """
-                            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                commandLine 'cmd', '/c', "$balTestWithDocker"
-                            } else {
-                                commandLine 'sh', '-c', "$balTestWithDocker"
-                            }
-                        } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat test --offline ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
+                project.exec {
+                    workingDir project.projectDir
+                    environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
+                    if (buildOnDocker) {
+                        createDockerEnvFile("$project.projectDir/docker.env")
+                        def balTestWithDocker = """
+                            docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
+                                -v $parentDirectory:/home/ballerina/$parentDirectory.name \
+                                -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
+                                ballerina/ballerina:$ballerinaDockerTag \
+                                /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
+                                $balJavaDebugParam bal test ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                        """
+                        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                            commandLine 'cmd', '/c', "$balTestWithDocker"
                         } else {
-                            commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal test --offline ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                            commandLine 'sh', '-c', "$balTestWithDocker"
                         }
-
+                    } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                        commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat test --offline ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
+                    } else {
+                        commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal test --offline ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                     }
+
                 }
                 if (buildOnDocker) {
                     deleteFile("$project.projectDir/docker.env")
