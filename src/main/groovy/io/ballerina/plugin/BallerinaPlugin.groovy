@@ -431,7 +431,7 @@ class BallerinaPlugin implements Plugin<Project> {
         def excludedVariables = ["PATH", "JAVA_HOME", "HOME"]
         def envVariables = System.getenv()
         envVariables.each { key, value ->
-            if (!excludedVariables.contains(key)) {
+            if (!excludedVariables.contains(key) && !key.startsWith("=")) {
                 dockerEnvFileWriter.println("$key=$value")
             }
         }
