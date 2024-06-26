@@ -278,7 +278,7 @@ class BallerinaPlugin implements Plugin<Project> {
                                 bal pack --target-dir ${balBuildTarget}"
                         """
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "$balPackWithDocker"
+                            commandLine 'cmd', '/c', "$balPackWithDocker && exit %%ERRORLEVEL%%"
                         } else {
                             commandLine 'sh', '-c', "$balPackWithDocker"
                         }
@@ -321,7 +321,7 @@ class BallerinaPlugin implements Plugin<Project> {
                                         bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala"
                                 """
                                 if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                    commandLine 'cmd', '/c', "$balPushWithDocker"
+                                    commandLine 'cmd', '/c', "$balPushWithDocker && exit %%ERRORLEVEL%%"
                                 } else {
                                     commandLine 'sh', '-c', "$balPushWithDocker"
                                 }
@@ -386,7 +386,7 @@ class BallerinaPlugin implements Plugin<Project> {
                                 $balJavaDebugParam bal test ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                         """
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "$balTestWithDocker"
+                            commandLine 'cmd', '/c', "$balTestWithDocker && exit %%ERRORLEVEL%%"
                         } else {
                             commandLine 'sh', '-c', "$balTestWithDocker"
                         }
@@ -413,7 +413,7 @@ class BallerinaPlugin implements Plugin<Project> {
                         /bin/sh -c "find /home/ballerina/$parentDirectory.name -type d -name 'build' -exec rm -rf {} + && find /home/ballerina/$parentDirectory.name -type d -name 'target' -exec rm -rf {} +"
                     """
                     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                        commandLine 'cmd', '/c', "$deleteUsingDocker"
+                        commandLine 'cmd', '/c', "$deleteUsingDocker && exit %%ERRORLEVEL%%"
                     } else {
                         commandLine 'sh', '-c', "$deleteUsingDocker"
                     }
@@ -431,7 +431,7 @@ class BallerinaPlugin implements Plugin<Project> {
         def excludedVariables = ["PATH", "JAVA_HOME", "HOME"]
         def envVariables = System.getenv()
         envVariables.each { key, value ->
-            if (!excludedVariables.contains(key)) {
+            if (!excludedVariables.contains(key) && !key.startsWith("=")) {
                 dockerEnvFileWriter.println("$key=$value")
             }
         }
