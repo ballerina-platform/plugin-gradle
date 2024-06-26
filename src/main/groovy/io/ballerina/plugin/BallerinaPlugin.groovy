@@ -278,7 +278,7 @@ class BallerinaPlugin implements Plugin<Project> {
                                 bal pack --target-dir ${balBuildTarget}"
                         """
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "$balPackWithDocker"
+                            commandLine 'cmd', '/c', "$balPackWithDocker && exit %%ERRORLEVEL%%"
                         } else {
                             commandLine 'sh', '-c', "$balPackWithDocker"
                         }
@@ -321,7 +321,7 @@ class BallerinaPlugin implements Plugin<Project> {
                                         bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala"
                                 """
                                 if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                    commandLine 'cmd', '/c', "$balPushWithDocker"
+                                    commandLine 'cmd', '/c', "$balPushWithDocker && exit %%ERRORLEVEL%%"
                                 } else {
                                     commandLine 'sh', '-c', "$balPushWithDocker"
                                 }
@@ -383,10 +383,10 @@ class BallerinaPlugin implements Plugin<Project> {
                                 -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
                                 ballerina/ballerina:$ballerinaDockerTag \
                                 /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
-                                $balJavaDebugParam bal test ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}&& exit %%ERRORLEVEL%% "
+                                $balJavaDebugParam bal test ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                         """
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "$balTestWithDocker"
+                            commandLine 'cmd', '/c', "$balTestWithDocker && exit %%ERRORLEVEL%%"
                         } else {
                             commandLine 'sh', '-c', "$balTestWithDocker"
                         }
@@ -413,7 +413,7 @@ class BallerinaPlugin implements Plugin<Project> {
                         /bin/sh -c "find /home/ballerina/$parentDirectory.name -type d -name 'build' -exec rm -rf {} + && find /home/ballerina/$parentDirectory.name -type d -name 'target' -exec rm -rf {} +"
                     """
                     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                        commandLine 'cmd', '/c', "$deleteUsingDocker"
+                        commandLine 'cmd', '/c', "$deleteUsingDocker && exit %%ERRORLEVEL%%"
                     } else {
                         commandLine 'sh', '-c', "$deleteUsingDocker"
                     }
