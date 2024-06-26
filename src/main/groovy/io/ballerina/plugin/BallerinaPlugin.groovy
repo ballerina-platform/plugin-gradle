@@ -383,7 +383,7 @@ class BallerinaPlugin implements Plugin<Project> {
                                 -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
                                 ballerina/ballerina:$ballerinaDockerTag \
                                 /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
-                                $balJavaDebugParam bal test ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                                $balJavaDebugParam bal test ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}&& exit %%ERRORLEVEL%% "
                         """
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                             commandLine 'cmd', '/c', "$balTestWithDocker"
