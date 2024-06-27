@@ -292,13 +292,14 @@ class BallerinaPlugin implements Plugin<Project> {
                 }
 
                 def balaPath = "$project.projectDir/${balBuildTarget}/bala"
-                if (!Files.exists(balaPath)) {
+                def balaDir = new File(balaDirPath)
+                if (!balaDir.exists()) {
                     println("[Error] 'bala' directory does not exist: ${balaPath}, hence exiting")
                     return
                 }
 
                 // extract bala file to balaArtifact
-                new File("$project.projectDir/${balBuildTarget}/bala").eachFileMatch(~/.*.bala/) { balaFile ->
+                balaDir.eachFileMatch(~/.*.bala/) { balaFile ->
                     project.copy {
                         from project.zipTree(balaFile)
                         into new File("$balaArtifact/bala/${packageOrg}/${packageName}/${balaVersion}/${platform}")
