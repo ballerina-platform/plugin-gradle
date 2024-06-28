@@ -292,7 +292,7 @@ class BallerinaPlugin implements Plugin<Project> {
                 }
 
                 def balaPath = "$project.projectDir/${balBuildTarget}/bala"
-                def balaDir = new File(balaDirPath)
+                def balaDir = new File(balaPath)
                 if (!balaDir.exists()) {
                     println("[Error] 'bala' directory does not exist: ${balaPath}, hence exiting")
                     return
