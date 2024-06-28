@@ -267,7 +267,6 @@ class BallerinaPlugin implements Plugin<Project> {
                 project.exec {
                     workingDir project.projectDir
                     environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                    standardOutput = new ByteArrayOutputStream()
                     if (buildOnDocker) {
                         createDockerEnvFile("$project.projectDir/docker.env")
                         def balPackWithDocker = """
@@ -291,7 +290,6 @@ class BallerinaPlugin implements Plugin<Project> {
                         }
                     }
                 }
-                println "Command output: ${standardOutput.toString()}"
 
                 def balaPath = "$project.projectDir/${balBuildTarget}/bala"
                 def balaDir = new File(balaPath)
