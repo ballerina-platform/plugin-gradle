@@ -267,7 +267,7 @@ class BallerinaPlugin implements Plugin<Project> {
                 project.exec {
                     workingDir project.projectDir
                     environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                    def buildResult = new ByteArrayOutputStream()
+                    standardOutput = new ByteArrayOutputStream()
                     if (buildOnDocker) {
                         createDockerEnvFile("$project.projectDir/docker.env")
                         def balPackWithDocker = """
@@ -280,22 +280,18 @@ class BallerinaPlugin implements Plugin<Project> {
                         """
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                             commandLine 'cmd', '/c', "$balPackWithDocker && exit %%ERRORLEVEL%%"
-                            standardOutput = buildResult
                         } else {
                             commandLine 'sh', '-c', "$balPackWithDocker"
-                            standardOutput = buildResult
                         }
                     } else {
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                             commandLine 'cmd', '/c', "$distributionBinPath/bal.bat pack --target-dir ${balBuildTarget} --offline && exit %%ERRORLEVEL%%"
-                            standardOutput = buildResult
                         } else {
                             commandLine 'sh', '-c', "$distributionBinPath/bal pack --target-dir ${balBuildTarget} --offline"
-                            standardOutput = buildResult
                         }
                     }
                 }
-                println "Command output: ${buildResult.toString()}"
+                println "Command output: ${standardOutput.toString()}"
 
                 def balaPath = "$project.projectDir/${balBuildTarget}/bala"
                 def balaDir = new File(balaPath)
