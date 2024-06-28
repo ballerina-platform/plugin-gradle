@@ -268,6 +268,7 @@ class BallerinaPlugin implements Plugin<Project> {
                     workingDir project.projectDir
                     environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                     standardOutput = new ByteArrayOutputStream()
+                    showStandardStreams = true
                     if (buildOnDocker) {
                         createDockerEnvFile("$project.projectDir/docker.env")
                         def balPackWithDocker = """
