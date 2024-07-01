@@ -279,7 +279,7 @@ class BallerinaPlugin implements Plugin<Project> {
                         """
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                             println "Executing command on windows: ${balPackWithDocker}"
-                            commandLine 'cmd', '/c', "$balPackWithDocker && exit %%ERRORLEVEL%%"
+                            commandLine 'cmd', '/c', "$balPackWithDocker"
                         } else {
                             commandLine 'sh', '-c', "$balPackWithDocker"
                         }
