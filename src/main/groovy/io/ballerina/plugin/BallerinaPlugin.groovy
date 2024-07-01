@@ -267,7 +267,7 @@ class BallerinaPlugin implements Plugin<Project> {
                 def outStream = new ByteArrayOutputStream()
                 def errStream = new ByteArrayOutputStream()
                 // Pack bala first
-                project.exec {
+                def execResults = project.exec {
                     workingDir project.projectDir
                     environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                     if (buildOnDocker) {
@@ -296,7 +296,7 @@ class BallerinaPlugin implements Plugin<Project> {
                         }
                     }
                 }
-                println("StdOut: ${outStream.toString()} \n ErrOut: ${errStream.toString()}\n")
+                println("Result: ${execResults.exitValue} ${execResults.properties}\nStdOut: ${outStream.toString()} \nErrOut: ${errStream.toString()}\n")
 
                 def balaPath = "$project.projectDir/${balBuildTarget}/bala"
                 def balaDir = new File(balaPath)
