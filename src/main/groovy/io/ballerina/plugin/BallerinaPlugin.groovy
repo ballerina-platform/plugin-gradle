@@ -278,6 +278,7 @@ class BallerinaPlugin implements Plugin<Project> {
                                 bal pack --target-dir ${balBuildTarget}"
                         """
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                            println "Executing command on windows: ${balPackWithDocker}"
                             commandLine 'cmd', '/c', "$balPackWithDocker && exit %%ERRORLEVEL%%"
                         } else {
                             commandLine 'sh', '-c', "$balPackWithDocker"
