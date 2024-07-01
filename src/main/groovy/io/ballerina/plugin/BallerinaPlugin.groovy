@@ -263,6 +263,9 @@ class BallerinaPlugin implements Plugin<Project> {
                 } else {
                     packageOrg = ballerinaExtension.packageOrganization
                 }
+
+                def outStream = new ByteArrayOutputStream()
+                def errStream = new ByteArrayOutputStream()
                 // Pack bala first
                 project.exec {
                     workingDir project.projectDir
@@ -279,8 +282,10 @@ class BallerinaPlugin implements Plugin<Project> {
                         """
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                             println "Executing command on windows: ${balPackWithDocker}"
+                            standardOutput = outStream
+                            errorOutput = errStream
                             // commandLine 'cmd', '/c', "$balPackWithDocker && exit %%ERRORLEVEL%%"
-                            commandLine 'cmd', '/c', "cd $parentDirectory.name/$projectDirectory.name && bal pack --target-dir ${balBuildTarget}"
+                            commandLine 'cmd', '/c', "cd $projectDirectory.name && bal pack --target-dir ${balBuildTarget}"
                         } else {
                             commandLine 'sh', '-c', "$balPackWithDocker"
                         }
@@ -292,6 +297,7 @@ class BallerinaPlugin implements Plugin<Project> {
                         }
                     }
                 }
+                println("StdOut: ${outStream.toString()} \n ErrOut: ${errStream.toString()}\n")
 
                 def balaPath = "$project.projectDir/${balBuildTarget}/bala"
                 def balaDir = new File(balaPath)
