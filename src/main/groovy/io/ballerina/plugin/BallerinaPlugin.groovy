@@ -264,16 +264,14 @@ class BallerinaPlugin implements Plugin<Project> {
                     packageOrg = ballerinaExtension.packageOrganization
                 }
 
-                def outStream = new ByteArrayOutputStream()
-                def errStream = new ByteArrayOutputStream()
                 // Pack bala first
-                def execResults = project.exec {
+                project.exec {
                     workingDir project.projectDir
                     environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                     if (buildOnDocker) {
                         createDockerEnvFile("$project.projectDir/docker.env")
                         def balPackWithDocker = """
-                            docker run --env-file $project.projectDir/docker.env --net=host -u root \
+                            docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
                                 -v $parentDirectory:/home/ballerina/$parentDirectory.name \
                                 -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
                                 ballerina/ballerina:$ballerinaDockerTag \
@@ -282,9 +280,8 @@ class BallerinaPlugin implements Plugin<Project> {
                         """
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                             println "Executing command on windows: ${balPackWithDocker}"
-                            commandLine 'cmd', '/c', "$balPackWithDocker && exit %%ERRORLEVEL%%"
-                            standardOutput = outStream
-                            errorOutput = errStream
+//                            commandLine 'cmd', '/c', "$balPackWithDocker && exit %%ERRORLEVEL%%"
+                            commandLine 'cmd', '/c', "docker run --env-file $project.projectDir/docker.env --rm --net=host -u root hello-world && exit %%ERRORLEVEL%%"
                         } else {
                             commandLine 'sh', '-c', "$balPackWithDocker"
                         }
@@ -296,13 +293,12 @@ class BallerinaPlugin implements Plugin<Project> {
                         }
                     }
                 }
-                println("Result: ${execResults.exitValue} ${execResults.properties}\nStdOut: ${outStream.toString()} \nErrOut: ${errStream.toString()}\n")
 
                 def balaPath = "$project.projectDir/${balBuildTarget}/bala"
                 def balaDir = new File(balaPath)
                 if (!balaDir.exists()) {
-                    println("[Error] 'bala' directory does not exist: ${balaPath}, hence exiting")
-                    return
+                    throw new FileNotFoundException(
+                            "[Error] 'bala' directory does not exist: ${balaPath}, hence exiting")
                 }
 
                 // extract bala file to balaArtifact
