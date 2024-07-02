@@ -281,7 +281,12 @@ class BallerinaPlugin implements Plugin<Project> {
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                             println "Executing command on windows: ${balPackWithDocker}"
 //                            commandLine 'cmd', '/c', "$balPackWithDocker && exit %%ERRORLEVEL%%"
-                            commandLine 'cmd', '/c', "docker run --env-file $project.projectDir/docker.env --rm --net=host -u root hello-world && exit %%ERRORLEVEL%%"
+                            def cmdStr = """
+                                docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
+                                /bin/sh -c "ls -al"" \
+                                alpine:latest
+                            """
+                            commandLine 'cmd', '/c', "$cmdStr && exit %%ERRORLEVEL%%"
                         } else {
                             commandLine 'sh', '-c', "$balPackWithDocker"
                         }
