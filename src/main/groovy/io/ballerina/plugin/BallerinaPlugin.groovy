@@ -265,7 +265,7 @@ class BallerinaPlugin implements Plugin<Project> {
                 }
 
                 // Pack bala first
-                project.exec {
+                def result = project.exec {
                     workingDir project.projectDir
                     environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                     if (buildOnDocker) {
@@ -283,10 +283,10 @@ class BallerinaPlugin implements Plugin<Project> {
 //                            commandLine 'cmd', '/c', "$balPackWithDocker && exit %%ERRORLEVEL%%"
                             def cmdStr = """
                                 docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
-                                /bin/sh -c "ls -al"" \
-                                alpine:latest
+                                alpine:latest \
+                                /bin/sh -c "ls -al"
                             """
-                            commandLine 'cmd', '/c', "$cmdStr && exit %%ERRORLEVEL%%"
+                            commandLine 'cmd', '/c', "$balPackWithDocker && exit %%ERRORLEVEL%%"
                         } else {
                             commandLine 'sh', '-c', "$balPackWithDocker"
                         }
@@ -298,6 +298,7 @@ class BallerinaPlugin implements Plugin<Project> {
                         }
                     }
                 }
+                result.wait(50000)
 
                 def balaPath = "$project.projectDir/${balBuildTarget}/bala"
                 def balaDir = new File(balaPath)
