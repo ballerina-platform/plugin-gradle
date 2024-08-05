@@ -18,6 +18,7 @@
 package io.ballerina.plugin
 
 import org.apache.tools.ant.taskdefs.condition.Os
+import org.gradle.api.GradleException
 import org.gradle.api.InvalidUserDataException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -59,8 +60,8 @@ class BallerinaPlugin implements Plugin<Project> {
         def needPublishToLocalCentral = false
         def graalvmFlag = ''
         def parallelTestFlag = ''
-        def ballerinaDockerTag = ''
         def distributionBinPath = ''
+        def ignoreVersionMismatch = false
 
         if (project.version.matches(project.ext.timestampedVersionRegex)) {
             def splitVersion = project.version.split('-')
@@ -184,9 +185,8 @@ class BallerinaPlugin implements Plugin<Project> {
 
         project.tasks.register('initializeVariables') {
             if (ballerinaExtension.isConnector) {
-                ballerinaDockerTag = getDockerImageTag(project)
-                println("[Info] project builds on docker")
-                println("[Info] using the Ballerina docker image tag: $ballerinaDockerTag")
+                def balVersion = getProjectBalVersion(project)
+                println("[Info] project builds using Ballerina distribution: $balVersion")
             }
 
             String packageName = ballerinaExtension.module
@@ -232,10 +232,61 @@ class BallerinaPlugin implements Plugin<Project> {
                     testCoverageParams = ballerinaExtension.testCoverageParam
                 }
             }
+
+            if (project.hasProperty("ignoreVersionMismatch")) {
+                ignoreVersionMismatch = true
+            }
+        }
+
+        project.tasks.register("verifyLocalBalVersion") {
+            dependsOn(project.initializeVariables)
+
+            if (!ballerinaExtension.isConnector) {
+                return
+            }
+
+            if (ignoreVersionMismatch) {
+                println("[Warn] Ignoring system-installed and configured Ballerina version mismatch.")
+                return
+            }
+
+            def output = new ByteArrayOutputStream()
+            def error = new ByteArrayOutputStream()
+
+            try {
+                exec {
+                    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                        commandLine 'cmd', '/c', "bal.bat -v"
+                    } else {
+                        commandLine 'sh', '-c', "bal -v"
+                    }
+                    standardOutput = output
+                    errorOutput = error
+                    ignoreExitValue = true
+                }
+            } catch (Exception e) {
+                throw new GradleException("Ballerina installation not found, hence exiting", e)
+            }
+
+            def versionOutput = output.toString()
+            def pattern = ~"Ballerina (\\d+\\.\\d+\\.\\d+) \\(Swan Lake Update \\d+\\)"
+            def matcher = pattern.matcher(versionOutput)
+            if (!matcher.find()) {
+                throw new GradleException("Failed to parse the Ballerina version")
+            }
+
+            def installedVersion = matcher.group(1)
+            def configuredVersion = getProjectBalVersion(project)
+
+            if (installedVersion != configuredVersion) {
+                throw new GradleException("Ballerina version mismatch. Expected: $configuredVersion, but found: $installedVersion, hence exiting")
+            }
+
         }
 
         project.tasks.register('build') {
             dependsOn(project.initializeVariables)
+            dependsOn(project.verifyLocalBalVersion)
             dependsOn(project.updateTomlFiles)
             finalizedBy(project.commitTomlFiles)
             dependsOn(project.test)
@@ -355,6 +406,7 @@ class BallerinaPlugin implements Plugin<Project> {
 
         project.tasks.register('test') {
             dependsOn(project.initializeVariables)
+            dependsOn(project.verifyLocalBalVersion)
             dependsOn(project.updateTomlFiles)
             finalizedBy(project.commitTomlFiles)
             doLast {
@@ -385,21 +437,8 @@ class BallerinaPlugin implements Plugin<Project> {
         }
     }
 
-    static String getDockerImageTag(Project project) {
-        def ballerinaDockerTag = project.findProperty('ballerinaLangVersion')
-        if (project.hasProperty('buildUsingDocker')) {
-            ballerinaDockerTag = project.findProperty('buildUsingDocker')
-            if (ballerinaDockerTag == '') {
-                return 'nightly'
-            }
-        }
-        if (isTimeStampVersion(ballerinaDockerTag)) {
-            return 'nightly'
-        }
-        return ballerinaDockerTag
-    }
-
-    static boolean isTimeStampVersion(String version) {
-        return version.trim().split("-").length > 1
+    static String getProjectBalVersion(Project project) {
+        def projectBalVersion = project.findProperty('ballerinaLangVersion')
+        return projectBalVersion
     }
 }
