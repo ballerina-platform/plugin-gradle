@@ -245,11 +245,6 @@ class BallerinaPlugin implements Plugin<Project> {
                 return
             }
 
-            if (ignoreVersionMismatch) {
-                println("[Warn] Ignoring system-installed and configured Ballerina version mismatch.")
-                return
-            }
-
             def output = new ByteArrayOutputStream()
             def error = new ByteArrayOutputStream()
 
@@ -279,6 +274,10 @@ class BallerinaPlugin implements Plugin<Project> {
             def configuredVersion = getProjectBalVersion(project)
 
             if (installedVersion != configuredVersion) {
+                if (ignoreVersionMismatch) {
+                    println("[Warn] Ignoring Ballerina version mismatch. Expected: $configuredVersion, but found: $installedVersion.")
+                    return
+                }
                 throw new GradleException("Ballerina version mismatch. Expected: $configuredVersion, but found: $installedVersion, hence exiting")
             }
 
