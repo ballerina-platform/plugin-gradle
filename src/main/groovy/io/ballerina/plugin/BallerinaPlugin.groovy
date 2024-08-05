@@ -49,7 +49,6 @@ class BallerinaPlugin implements Plugin<Project> {
         def balBuildTarget = 'build/bal_build_target'
         def balaArtifact = new File("$project.projectDir/build/bala_unzipped/")
         def projectDirectory = new File("$project.projectDir")
-        def parentDirectory = new File("$projectDirectory.parent")
         def ballerinaCentralAccessToken = System.getenv('BALLERINA_CENTRAL_ACCESS_TOKEN')
         def groupParams = ''
         def disableGroups = ''
@@ -184,7 +183,7 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.tasks.register('initializeVariables') {
-            if (ballerinaExtension.isConnector || project.hasProperty('buildUsingDocker')) {
+            if (ballerinaExtension.isConnector) {
                 ballerinaDockerTag = getDockerImageTag(project)
                 println("[Info] project builds on docker")
                 println("[Info] using the Ballerina docker image tag: $ballerinaDockerTag")
@@ -380,32 +379,9 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.tasks.register('clean', Delete.class) {
-            if (ballerinaExtension.isConnector) {
-                project.exec {
-                    def deleteUsingDocker = """
-                        docker run -u root \
-                        -v $parentDirectory:/home/ballerina/$parentDirectory.name \
-                        ballerina/ballerina:$ballerinaDockerTag \
-                        /bin/sh -c "find /home/ballerina/$parentDirectory.name -type d -name 'build' -exec rm -rf {} + && find /home/ballerina/$parentDirectory.name -type d -name 'target' -exec rm -rf {} +"
-                    """
-                    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                        commandLine 'cmd', '/c', "$deleteUsingDocker && exit %%ERRORLEVEL%%"
-                    } else {
-                        commandLine 'sh', '-c', "$deleteUsingDocker"
-                    }
-                }
-            } else {
-                delete "$project.projectDir/target"
-                delete "$project.projectDir/build"
-            }
+            delete "$project.projectDir/target"
+            delete "$project.projectDir/build"
             delete "$project.rootDir/target"
-        }
-    }
-
-    static void deleteFile(String filePath) {
-        def file = new File(filePath)
-        if (file.exists() && !file.delete()) {
-            println("Failed to delete $filePath.")
         }
     }
 
