@@ -267,26 +267,10 @@ class BallerinaPlugin implements Plugin<Project> {
                     workingDir project.projectDir
                     environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                     if (ballerinaExtension.isConnector) {
-                        createDockerEnvFile("$project.projectDir/docker.env")
-                        def balPackWithDocker = """
-                            docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
-                                -v $parentDirectory:/home/ballerina/$parentDirectory.name \
-                                -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
-                                ballerina/ballerina:$ballerinaDockerTag \
-                                /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
-                                bal pack --target-dir ${balBuildTarget}"
-                        """
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            println "Executing command on windows: ${balPackWithDocker}"
-//                            commandLine 'cmd', '/c', "$balPackWithDocker && exit %%ERRORLEVEL%%"
-                            def cmdStr = """
-                                docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
-                                alpine:latest \
-                                /bin/sh -c "ls -al"
-                            """
-                            commandLine 'cmd', '/c', "$balPackWithDocker && exit %%ERRORLEVEL%%"
+                            commandLine 'cmd', '/c', "bal.bat pack --target-dir ${balBuildTarget} && exit %%ERRORLEVEL%%"
                         } else {
-                            commandLine 'sh', '-c', "$balPackWithDocker"
+                            commandLine 'sh', '-c', "bal pack --target-dir ${balBuildTarget}"
                         }
                     } else {
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
@@ -327,18 +311,10 @@ class BallerinaPlugin implements Plugin<Project> {
                             workingDir project.projectDir
                             environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                             if (ballerinaExtension.isConnector) {
-                                def balPushWithDocker = """
-                                    docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
-                                        -v $parentDirectory:/home/ballerina/$parentDirectory.name \
-                                        -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
-                                        ballerina/ballerina:$ballerinaDockerTag \
-                                        /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
-                                        bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala"
-                                """
                                 if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                    commandLine 'cmd', '/c', "$balPushWithDocker && exit %%ERRORLEVEL%%"
+                                    commandLine 'cmd', '/c', "bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala && exit %%ERRORLEVEL%%"
                                 } else {
-                                    commandLine 'sh', '-c', "$balPushWithDocker"
+                                    commandLine 'sh', '-c', "bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala"
                                 }
                             } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                                 commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala && exit %%ERRORLEVEL%%"
@@ -369,9 +345,6 @@ class BallerinaPlugin implements Plugin<Project> {
                         }
                     }
                 }
-                if (ballerinaExtension.isConnector) {
-                    deleteFile("$project.projectDir/docker.env")
-                }
             }
             outputs.dir balaArtifact
         }
@@ -391,19 +364,10 @@ class BallerinaPlugin implements Plugin<Project> {
                     workingDir project.projectDir
                     environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                     if (ballerinaExtension.isConnector) {
-                        createDockerEnvFile("$project.projectDir/docker.env")
-                        def balTestWithDocker = """
-                            docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
-                                -v $parentDirectory:/home/ballerina/$parentDirectory.name \
-                                -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
-                                ballerina/ballerina:$ballerinaDockerTag \
-                                /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
-                                $balJavaDebugParam bal test ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
-                        """
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "$balTestWithDocker && exit %%ERRORLEVEL%%"
+                            commandLine 'cmd', '/c', "bal.bat test --offline ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
                         } else {
-                            commandLine 'sh', '-c', "$balTestWithDocker"
+                            commandLine 'sh', '-c', "bal test --offline ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                         }
                     } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                         commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat test --offline ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
@@ -411,9 +375,6 @@ class BallerinaPlugin implements Plugin<Project> {
                         commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal test --offline ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                     }
 
-                }
-                if (ballerinaExtension.isConnector) {
-                    deleteFile("$project.projectDir/docker.env")
                 }
             }
         }
@@ -439,18 +400,6 @@ class BallerinaPlugin implements Plugin<Project> {
             }
             delete "$project.rootDir/target"
         }
-    }
-
-    static void createDockerEnvFile(String dockerEnvFilePath) {
-        def dockerEnvFileWriter = new PrintWriter("$dockerEnvFilePath", "UTF-8")
-        def excludedVariables = ["PATH", "JAVA_HOME", "HOME"]
-        def envVariables = System.getenv()
-        envVariables.each { key, value ->
-            if (!excludedVariables.contains(key) && !key.startsWith("=")) {
-                dockerEnvFileWriter.println("$key=$value")
-            }
-        }
-        dockerEnvFileWriter.close()
     }
 
     static void deleteFile(String filePath) {
