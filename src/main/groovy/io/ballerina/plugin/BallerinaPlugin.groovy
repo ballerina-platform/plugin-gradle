@@ -60,7 +60,6 @@ class BallerinaPlugin implements Plugin<Project> {
         def needPublishToLocalCentral = false
         def graalvmFlag = ''
         def parallelTestFlag = ''
-        def buildOnDocker = false
         def ballerinaDockerTag = ''
         def distributionBinPath = ''
 
@@ -88,8 +87,8 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.dependencies {
-            if (buildOnDocker) {
-                println("[Warning] skipping downloading jBallerinaTools dependency: project uses docker to build the module")
+            if (ballerinaExtension.isConnector) {
+                println("[Warning] skipping downloading jBallerinaTools dependency: project uses locally installed Ballerina distribution to build the module")
             } else {
                 if (ballerinaExtension.langVersion == null) {
                     jbalTools("org.ballerinalang:jballerina-tools:${ballerinaExtension.langVersion}") {
@@ -110,8 +109,8 @@ class BallerinaPlugin implements Plugin<Project> {
                 }
             }
 
-            if (buildOnDocker) {
-                println("[Warning] skipping task 'unpackJballerinaTools': project uses docker to build the module")
+            if (ballerinaExtension.isConnector) {
+                println("[Warning] skipping downloading jBallerinaTools dependency: project uses locally installed Ballerina distribution to build the module")
             } else {
                 doLast {
                     project.configurations.jbalTools.resolvedConfiguration.resolvedArtifacts.each { artifact ->
@@ -136,8 +135,8 @@ class BallerinaPlugin implements Plugin<Project> {
 
         project.tasks.register('unpackStdLibs') {
             dependsOn(project.unpackJballerinaTools)
-            if (buildOnDocker) {
-                println("[Warning] skipping task 'unpackStdLibs': project uses docker to build the module")
+            if (ballerinaExtension.isConnector) {
+                println("[Warning] skipping downloading jBallerinaTools dependency: project uses locally installed Ballerina distribution to build the module")
             } else {
                 doLast {
                     project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
@@ -152,8 +151,8 @@ class BallerinaPlugin implements Plugin<Project> {
 
         project.tasks.register('copyStdlibs') {
             dependsOn(project.unpackStdLibs)
-            if (buildOnDocker) {
-                println("[Warning] skipping task 'copyStdlibs': project uses docker to build the module")
+            if (ballerinaExtension.isConnector) {
+                println("[Warning] skipping downloading jBallerinaTools dependency: project uses locally installed Ballerina distribution to build the module")
             } else {
                 doLast {
                     /* Standard Libraries */
@@ -186,7 +185,6 @@ class BallerinaPlugin implements Plugin<Project> {
 
         project.tasks.register('initializeVariables') {
             if (ballerinaExtension.isConnector || project.hasProperty('buildUsingDocker')) {
-                buildOnDocker = true
                 ballerinaDockerTag = getDockerImageTag(project)
                 println("[Info] project builds on docker")
                 println("[Info] using the Ballerina docker image tag: $ballerinaDockerTag")
@@ -268,7 +266,7 @@ class BallerinaPlugin implements Plugin<Project> {
                 def result = project.exec {
                     workingDir project.projectDir
                     environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                    if (buildOnDocker) {
+                    if (ballerinaExtension.isConnector) {
                         createDockerEnvFile("$project.projectDir/docker.env")
                         def balPackWithDocker = """
                             docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
@@ -328,7 +326,7 @@ class BallerinaPlugin implements Plugin<Project> {
                         project.exec {
                             workingDir project.projectDir
                             environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                            if (buildOnDocker) {
+                            if (ballerinaExtension.isConnector) {
                                 def balPushWithDocker = """
                                     docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
                                         -v $parentDirectory:/home/ballerina/$parentDirectory.name \
@@ -371,7 +369,7 @@ class BallerinaPlugin implements Plugin<Project> {
                         }
                     }
                 }
-                if (buildOnDocker) {
+                if (ballerinaExtension.isConnector) {
                     deleteFile("$project.projectDir/docker.env")
                 }
             }
@@ -392,7 +390,7 @@ class BallerinaPlugin implements Plugin<Project> {
                 project.exec {
                     workingDir project.projectDir
                     environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                    if (buildOnDocker) {
+                    if (ballerinaExtension.isConnector) {
                         createDockerEnvFile("$project.projectDir/docker.env")
                         def balTestWithDocker = """
                             docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
@@ -414,14 +412,14 @@ class BallerinaPlugin implements Plugin<Project> {
                     }
 
                 }
-                if (buildOnDocker) {
+                if (ballerinaExtension.isConnector) {
                     deleteFile("$project.projectDir/docker.env")
                 }
             }
         }
 
         project.tasks.register('clean', Delete.class) {
-            if (buildOnDocker) {
+            if (ballerinaExtension.isConnector) {
                 project.exec {
                     def deleteUsingDocker = """
                         docker run -u root \
