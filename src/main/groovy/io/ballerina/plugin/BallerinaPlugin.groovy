@@ -184,11 +184,6 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.tasks.register('initializeVariables') {
-            if (ballerinaExtension.isConnector) {
-                def balVersion = getProjectBalVersion(project)
-                println("[Info] project builds using Ballerina distribution: $balVersion")
-            }
-
             String packageName = ballerinaExtension.module
             String organization
             if (ballerinaExtension.packageOrganization == null) {
@@ -264,27 +259,28 @@ class BallerinaPlugin implements Plugin<Project> {
             }
 
             def versionOutput = output.toString()
-            def pattern = ~"Ballerina (\\d+\\.\\d+\\.\\d+) \\(Swan Lake Update \\d+\\)"
-            def matcher = pattern.matcher(versionOutput)
-            if (!matcher.find()) {
-                throw new GradleException("Failed to parse the Ballerina version")
+            def installedVersion = ""
+            try {
+                def balVersion = versionOutput.split("\n")[0]
+                installedVersion = balVersion
+                        .replaceAll("Ballerina ", '')
+                        .replaceAll("\\(Swan Lake Update \\d+\\)", '')
+                        .replaceAll("\\s+", '')
+            } catch (Exception e) {
+                throw new GradleException("Failed to parse the Ballerina version: $versionOutput", e)
             }
 
-            def installedVersion = matcher.group(1)
-            def configuredVersion = getProjectBalVersion(project)
-
+            def configuredVersion = project.findProperty('ballerinaLangVersion')
             if (installedVersion != configuredVersion) {
                 if (ignoreVersionMismatch) {
-                    println("[Warn] Ignoring Ballerina version mismatch. Expected: $configuredVersion, but found: $installedVersion.")
+                    println("[Warning] Ignoring Ballerina version mismatch. Expected: $configuredVersion, but found: $installedVersion.")
                     return
                 }
                 throw new GradleException("Ballerina version mismatch. Expected: $configuredVersion, but found: $installedVersion, hence exiting")
             }
-
         }
 
         project.tasks.register('build') {
-            dependsOn(project.initializeVariables)
             dependsOn(project.verifyLocalBalVersion)
             dependsOn(project.updateTomlFiles)
             finalizedBy(project.commitTomlFiles)
@@ -404,7 +400,6 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.tasks.register('test') {
-            dependsOn(project.initializeVariables)
             dependsOn(project.verifyLocalBalVersion)
             dependsOn(project.updateTomlFiles)
             finalizedBy(project.commitTomlFiles)
@@ -434,10 +429,5 @@ class BallerinaPlugin implements Plugin<Project> {
             delete "$project.projectDir/build"
             delete "$project.rootDir/target"
         }
-    }
-
-    static String getProjectBalVersion(Project project) {
-        def projectBalVersion = project.findProperty('ballerinaLangVersion')
-        return projectBalVersion
     }
 }
