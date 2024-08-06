@@ -152,7 +152,7 @@ class BallerinaPlugin implements Plugin<Project> {
 
         project.tasks.register('copyStdlibs') {
             dependsOn(project.unpackStdLibs)
-            
+
             if (ballerinaExtension.isConnector) {
                 println("[Warning] skip downloading jBallerinaTools dependency: project uses locally installed Ballerina distribution to build the module")
                 return
