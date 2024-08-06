@@ -88,6 +88,7 @@ class BallerinaPlugin implements Plugin<Project> {
 
         project.dependencies {
             if (ballerinaExtension.isConnector) {
+                println("[Warning] skip downloading jBallerinaTools dependency: project uses locally installed Ballerina distribution to build the module")
                 return
             }
 
@@ -103,10 +104,6 @@ class BallerinaPlugin implements Plugin<Project> {
                 if (configuration.name == "externalJars") {
                     dependsOn(project.copyToLib)
                 }
-            }
-
-            if (ballerinaExtension.isConnector) {
-                return
             }
 
             doLast {
@@ -132,10 +129,6 @@ class BallerinaPlugin implements Plugin<Project> {
         project.tasks.register('unpackStdLibs') {
             dependsOn(project.unpackJballerinaTools)
 
-            if (ballerinaExtension.isConnector) {
-                return
-            }
-
             doLast {
                 project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
                     project.copy {
@@ -148,11 +141,6 @@ class BallerinaPlugin implements Plugin<Project> {
 
         project.tasks.register('copyStdlibs') {
             dependsOn(project.unpackStdLibs)
-
-            if (ballerinaExtension.isConnector) {
-                println("[Warning] skip downloading jBallerinaTools dependency: project uses locally installed Ballerina distribution to build the module")
-                return
-            }
 
             doLast {
                 /* Standard Libraries */
@@ -374,18 +362,18 @@ class BallerinaPlugin implements Plugin<Project> {
                     project.exec {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                        if (!ballerinaExtension.isConnector) {
+                        if (ballerinaExtension.isConnector) {
+                            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                                commandLine 'cmd', '/c', "bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local && exit %%ERRORLEVEL%%"
+                            } else {
+                                commandLine 'sh', '-c', "bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local"
+                            }
+                        } else {
                             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                                 commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local && exit %%ERRORLEVEL%%"
                             } else {
                                 commandLine 'sh', '-c', "$distributionBinPath/bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local"
                             }
-                        } else {
-                            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                commandLine 'cmd', '/c', "bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local && exit %%ERRORLEVEL%%"
-                            } else {
-                                commandLine 'sh', '-c', "bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local"
-                            } 
                         }
                     }
                 }
