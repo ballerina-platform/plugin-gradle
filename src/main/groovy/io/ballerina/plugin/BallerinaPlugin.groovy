@@ -134,11 +134,12 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.tasks.register('unpackStdLibs') {
+            dependsOn(project.unpackJballerinaTools)
+
             if (ballerinaExtension.isConnector) {
                 return
             }
 
-            dependsOn(project.unpackJballerinaTools)
             doLast {
                 project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
                     project.copy {
@@ -150,12 +151,13 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.tasks.register('copyStdlibs') {
+            dependsOn(project.unpackStdLibs)
+            
             if (ballerinaExtension.isConnector) {
                 println("[Warning] skip downloading jBallerinaTools dependency: project uses locally installed Ballerina distribution to build the module")
                 return
             }
 
-            dependsOn(project.unpackStdLibs)
             doLast {
                 /* Standard Libraries */
                 project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
