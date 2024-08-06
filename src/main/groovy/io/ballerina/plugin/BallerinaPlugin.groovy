@@ -260,15 +260,15 @@ class BallerinaPlugin implements Plugin<Project> {
             }
 
             def versionOutput = output.toString()
-            def installedVersion = ""
-            try {
-                def balVersion = versionOutput.split("\n")[0]
-                installedVersion = balVersion
-                        .replaceAll("Ballerina ", '')
-                        .replaceAll("\\(Swan Lake Update \\d+\\)", '')
-                        .replaceAll("\\s+", '')
-            } catch (Exception e) {
-                throw new GradleException("Failed to parse the Ballerina version: $versionOutput", e)
+            def balVersion = versionOutput.split("\n")[0]
+            def installedVersion = balVersion
+                    .replaceAll("Ballerina ", '')
+                    .replaceAll("\\(Swan Lake Update \\d+\\)", '')
+                    .replaceAll("\\s+", '')
+
+            def balVersionPattern = ~/^\d{4}\.\d+\.\d+$/
+            if (!balVersionPattern.matcher(installedVersion).matches()) {
+                throw new GradleException("Failed to parse the Ballerina version. Balllerina CLI output: $versionOutput Extracted version:$installedVersion")
             }
 
             def configuredVersion = project.findProperty('ballerinaLangVersion')
