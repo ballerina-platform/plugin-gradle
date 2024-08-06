@@ -88,16 +88,16 @@ class BallerinaPlugin implements Plugin<Project> {
 
         project.dependencies {
             if (ballerinaExtension.isConnector) {
-                println("[Warning] skipping downloading jBallerinaTools dependency: project uses locally installed Ballerina distribution to build the module")
+                return
+            }
+
+            if (ballerinaExtension.langVersion == null) {
+                jbalTools("org.ballerinalang:jballerina-tools:${ballerinaExtension.langVersion}") {
+                    transitive = false
+                }
             } else {
-                if (ballerinaExtension.langVersion == null) {
-                    jbalTools("org.ballerinalang:jballerina-tools:${ballerinaExtension.langVersion}") {
-                        transitive = false
-                    }
-                } else {
-                    jbalTools("org.ballerinalang:jballerina-tools:${ballerinaExtension.langVersion}") {
-                        transitive = false
-                    }
+                jbalTools("org.ballerinalang:jballerina-tools:${ballerinaExtension.langVersion}") {
+                    transitive = false
                 }
             }
         }
@@ -110,73 +110,74 @@ class BallerinaPlugin implements Plugin<Project> {
             }
 
             if (ballerinaExtension.isConnector) {
-                println("[Warning] skipping downloading jBallerinaTools dependency: project uses locally installed Ballerina distribution to build the module")
-            } else {
-                doLast {
-                    project.configurations.jbalTools.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-                        project.copy {
-                            from project.zipTree(artifact.getFile())
-                            into new File("${project.buildDir}/")
-                        }
+                return
+            }
 
-                        project.copy {
-                            from(project.zipTree(artifact.getFile())) {
-                                eachFile { fcd ->
-                                    fcd.relativePath = new RelativePath(!fcd.file.isDirectory(), fcd.relativePath.segments.drop(1))
-                                }
-                                includeEmptyDirs = false
+            doLast {
+                project.configurations.jbalTools.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                    project.copy {
+                        from project.zipTree(artifact.getFile())
+                        into new File("${project.buildDir}/")
+                    }
+
+                    project.copy {
+                        from(project.zipTree(artifact.getFile())) {
+                            eachFile { fcd ->
+                                fcd.relativePath = new RelativePath(!fcd.file.isDirectory(), fcd.relativePath.segments.drop(1))
                             }
-                            into "${project.rootDir}/target/ballerina-runtime"
+                            includeEmptyDirs = false
                         }
+                        into "${project.rootDir}/target/ballerina-runtime"
                     }
                 }
             }
         }
 
         project.tasks.register('unpackStdLibs') {
-            dependsOn(project.unpackJballerinaTools)
             if (ballerinaExtension.isConnector) {
-                println("[Warning] skipping downloading jBallerinaTools dependency: project uses locally installed Ballerina distribution to build the module")
-            } else {
-                doLast {
-                    project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-                        project.copy {
-                            from project.zipTree(artifact.getFile())
-                            into new File("${project.buildDir}/extracted-stdlibs", artifact.name + '-zip')
-                        }
+                return
+            }
+
+            dependsOn(project.unpackJballerinaTools)
+            doLast {
+                project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                    project.copy {
+                        from project.zipTree(artifact.getFile())
+                        into new File("${project.buildDir}/extracted-stdlibs", artifact.name + '-zip')
                     }
                 }
             }
         }
 
         project.tasks.register('copyStdlibs') {
-            dependsOn(project.unpackStdLibs)
             if (ballerinaExtension.isConnector) {
-                println("[Warning] skipping downloading jBallerinaTools dependency: project uses locally installed Ballerina distribution to build the module")
-            } else {
-                doLast {
-                    /* Standard Libraries */
-                    project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-                        def artifactExtractedPath = "${project.buildDir}/extracted-stdlibs/" + artifact.name + '-zip'
-                        project.copy {
-                            def ballerinaDist = "build/jballerina-tools-${ballerinaExtension.langVersion}"
-                            into ballerinaDist
-                            into('repo/bala') {
-                                from "${artifactExtractedPath}/bala"
-                            }
-                            into('repo/cache') {
-                                from "${artifactExtractedPath}/cache"
-                            }
+                println("[Warning] skip downloading jBallerinaTools dependency: project uses locally installed Ballerina distribution to build the module")
+                return
+            }
+
+            dependsOn(project.unpackStdLibs)
+            doLast {
+                /* Standard Libraries */
+                project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                    def artifactExtractedPath = "${project.buildDir}/extracted-stdlibs/" + artifact.name + '-zip'
+                    project.copy {
+                        def ballerinaDist = "build/jballerina-tools-${ballerinaExtension.langVersion}"
+                        into ballerinaDist
+                        into('repo/bala') {
+                            from "${artifactExtractedPath}/bala"
                         }
-                        project.copy {
-                            def runtimePath = "${project.rootDir}/target/ballerina-runtime"
-                            into runtimePath
-                            into('repo/bala') {
-                                from "${artifactExtractedPath}/bala"
-                            }
-                            into('repo/cache') {
-                                from "${artifactExtractedPath}/cache"
-                            }
+                        into('repo/cache') {
+                            from "${artifactExtractedPath}/cache"
+                        }
+                    }
+                    project.copy {
+                        def runtimePath = "${project.rootDir}/target/ballerina-runtime"
+                        into runtimePath
+                        into('repo/bala') {
+                            from "${artifactExtractedPath}/bala"
+                        }
+                        into('repo/cache') {
+                            from "${artifactExtractedPath}/cache"
                         }
                     }
                 }
