@@ -91,11 +91,7 @@ class BallerinaPlugin implements Plugin<Project> {
                 return
             }
 
-            if (ballerinaExtension.langVersion == null) {
-                jbalTools("org.ballerinalang:jballerina-tools:${ballerinaExtension.langVersion}") {
-                    transitive = false
-                }
-            } else {
+            if (ballerinaExtension.langVersion != null) {
                 jbalTools("org.ballerinalang:jballerina-tools:${ballerinaExtension.langVersion}") {
                     transitive = false
                 }
