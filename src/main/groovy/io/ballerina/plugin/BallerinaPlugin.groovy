@@ -18,6 +18,7 @@
 package io.ballerina.plugin
 
 import org.apache.tools.ant.taskdefs.condition.Os
+import org.gradle.api.GradleException
 import org.gradle.api.InvalidUserDataException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -49,7 +50,6 @@ class BallerinaPlugin implements Plugin<Project> {
         def balBuildTarget = 'build/bal_build_target'
         def balaArtifact = new File("$project.projectDir/build/bala_unzipped/")
         def projectDirectory = new File("$project.projectDir")
-        def parentDirectory = new File("$projectDirectory.parent")
         def ballerinaCentralAccessToken = System.getenv('BALLERINA_CENTRAL_ACCESS_TOKEN')
         def groupParams = ''
         def disableGroups = ''
@@ -60,9 +60,8 @@ class BallerinaPlugin implements Plugin<Project> {
         def needPublishToLocalCentral = false
         def graalvmFlag = ''
         def parallelTestFlag = ''
-        def buildOnDocker = false
-        def ballerinaDockerTag = ''
         def distributionBinPath = ''
+        def ignoreVersionMismatch = false
 
         if (project.version.matches(project.ext.timestampedVersionRegex)) {
             def splitVersion = project.version.split('-')
@@ -88,17 +87,14 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.dependencies {
-            if (buildOnDocker) {
-                println("[Warning] skipping downloading jBallerinaTools dependency: project uses docker to build the module")
-            } else {
-                if (ballerinaExtension.langVersion == null) {
-                    jbalTools("org.ballerinalang:jballerina-tools:${ballerinaExtension.langVersion}") {
-                        transitive = false
-                    }
-                } else {
-                    jbalTools("org.ballerinalang:jballerina-tools:${ballerinaExtension.langVersion}") {
-                        transitive = false
-                    }
+            if (ballerinaExtension.isConnector) {
+                println("[Warning] skip downloading jBallerinaTools dependency: project uses locally installed Ballerina distribution to build the module")
+                return
+            }
+
+            if (ballerinaExtension.langVersion != null) {
+                jbalTools("org.ballerinalang:jballerina-tools:${ballerinaExtension.langVersion}") {
+                    transitive = false
                 }
             }
         }
@@ -110,25 +106,21 @@ class BallerinaPlugin implements Plugin<Project> {
                 }
             }
 
-            if (buildOnDocker) {
-                println("[Warning] skipping task 'unpackJballerinaTools': project uses docker to build the module")
-            } else {
-                doLast {
-                    project.configurations.jbalTools.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-                        project.copy {
-                            from project.zipTree(artifact.getFile())
-                            into new File("${project.buildDir}/")
-                        }
+            doLast {
+                project.configurations.jbalTools.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                    project.copy {
+                        from project.zipTree(artifact.getFile())
+                        into new File("${project.buildDir}/")
+                    }
 
-                        project.copy {
-                            from(project.zipTree(artifact.getFile())) {
-                                eachFile { fcd ->
-                                    fcd.relativePath = new RelativePath(!fcd.file.isDirectory(), fcd.relativePath.segments.drop(1))
-                                }
-                                includeEmptyDirs = false
+                    project.copy {
+                        from(project.zipTree(artifact.getFile())) {
+                            eachFile { fcd ->
+                                fcd.relativePath = new RelativePath(!fcd.file.isDirectory(), fcd.relativePath.segments.drop(1))
                             }
-                            into "${project.rootDir}/target/ballerina-runtime"
+                            includeEmptyDirs = false
                         }
+                        into "${project.rootDir}/target/ballerina-runtime"
                     }
                 }
             }
@@ -136,15 +128,12 @@ class BallerinaPlugin implements Plugin<Project> {
 
         project.tasks.register('unpackStdLibs') {
             dependsOn(project.unpackJballerinaTools)
-            if (buildOnDocker) {
-                println("[Warning] skipping task 'unpackStdLibs': project uses docker to build the module")
-            } else {
-                doLast {
-                    project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-                        project.copy {
-                            from project.zipTree(artifact.getFile())
-                            into new File("${project.buildDir}/extracted-stdlibs", artifact.name + '-zip')
-                        }
+
+            doLast {
+                project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                    project.copy {
+                        from project.zipTree(artifact.getFile())
+                        into new File("${project.buildDir}/extracted-stdlibs", artifact.name + '-zip')
                     }
                 }
             }
@@ -152,32 +141,29 @@ class BallerinaPlugin implements Plugin<Project> {
 
         project.tasks.register('copyStdlibs') {
             dependsOn(project.unpackStdLibs)
-            if (buildOnDocker) {
-                println("[Warning] skipping task 'copyStdlibs': project uses docker to build the module")
-            } else {
-                doLast {
-                    /* Standard Libraries */
-                    project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-                        def artifactExtractedPath = "${project.buildDir}/extracted-stdlibs/" + artifact.name + '-zip'
-                        project.copy {
-                            def ballerinaDist = "build/jballerina-tools-${ballerinaExtension.langVersion}"
-                            into ballerinaDist
-                            into('repo/bala') {
-                                from "${artifactExtractedPath}/bala"
-                            }
-                            into('repo/cache') {
-                                from "${artifactExtractedPath}/cache"
-                            }
+
+            doLast {
+                /* Standard Libraries */
+                project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+                    def artifactExtractedPath = "${project.buildDir}/extracted-stdlibs/" + artifact.name + '-zip'
+                    project.copy {
+                        def ballerinaDist = "build/jballerina-tools-${ballerinaExtension.langVersion}"
+                        into ballerinaDist
+                        into('repo/bala') {
+                            from "${artifactExtractedPath}/bala"
                         }
-                        project.copy {
-                            def runtimePath = "${project.rootDir}/target/ballerina-runtime"
-                            into runtimePath
-                            into('repo/bala') {
-                                from "${artifactExtractedPath}/bala"
-                            }
-                            into('repo/cache') {
-                                from "${artifactExtractedPath}/cache"
-                            }
+                        into('repo/cache') {
+                            from "${artifactExtractedPath}/cache"
+                        }
+                    }
+                    project.copy {
+                        def runtimePath = "${project.rootDir}/target/ballerina-runtime"
+                        into runtimePath
+                        into('repo/bala') {
+                            from "${artifactExtractedPath}/bala"
+                        }
+                        into('repo/cache') {
+                            from "${artifactExtractedPath}/cache"
                         }
                     }
                 }
@@ -185,13 +171,6 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.tasks.register('initializeVariables') {
-            if (ballerinaExtension.isConnector || project.hasProperty('buildUsingDocker')) {
-                buildOnDocker = true
-                ballerinaDockerTag = getDockerImageTag(project)
-                println("[Info] project builds on docker")
-                println("[Info] using the Ballerina docker image tag: $ballerinaDockerTag")
-            }
-
             String packageName = ballerinaExtension.module
             String organization
             if (ballerinaExtension.packageOrganization == null) {
@@ -235,10 +214,61 @@ class BallerinaPlugin implements Plugin<Project> {
                     testCoverageParams = ballerinaExtension.testCoverageParam
                 }
             }
+
+            if (project.hasProperty("ignoreVersionMismatch")) {
+                ignoreVersionMismatch = true
+            }
+        }
+
+        project.tasks.register("verifyLocalBalVersion") {
+            dependsOn(project.initializeVariables)
+
+            if (!ballerinaExtension.isConnector) {
+                return
+            }
+
+            def output = new ByteArrayOutputStream()
+            def error = new ByteArrayOutputStream()
+
+            try {
+                exec {
+                    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                        commandLine 'cmd', '/c', "bal.bat -v"
+                    } else {
+                        commandLine 'sh', '-c', "bal -v"
+                    }
+                    standardOutput = output
+                    errorOutput = error
+                    ignoreExitValue = true
+                }
+            } catch (Exception e) {
+                throw new GradleException("Ballerina installation not found, hence exiting", e)
+            }
+
+            def versionOutput = output.toString()
+            def balVersion = versionOutput.split("\n")[0]
+            def installedVersion = balVersion
+                    .replaceAll("Ballerina ", '')
+                    .replaceAll("\\(Swan Lake Update \\d+\\)", '')
+                    .replaceAll("\\s+", '')
+
+            def balVersionPattern = ~/^\d{4}\.\d+\.\d+$/
+            if (!balVersionPattern.matcher(installedVersion).matches()) {
+                throw new GradleException("Failed to parse the Ballerina version. Balllerina CLI output: $versionOutput Extracted version:$installedVersion")
+            }
+
+            def configuredVersion = project.findProperty('ballerinaLangVersion')
+            if (installedVersion != configuredVersion) {
+                if (ignoreVersionMismatch) {
+                    println("[Warning] Ignoring Ballerina version mismatch. Expected: $configuredVersion, but found: $installedVersion.")
+                    return
+                }
+                throw new GradleException("Ballerina version mismatch. Expected: $configuredVersion, but found: $installedVersion, hence exiting")
+            }
         }
 
         project.tasks.register('build') {
-            dependsOn(project.initializeVariables)
+            dependsOn(project.verifyLocalBalVersion)
             dependsOn(project.updateTomlFiles)
             finalizedBy(project.commitTomlFiles)
             dependsOn(project.test)
@@ -268,27 +298,11 @@ class BallerinaPlugin implements Plugin<Project> {
                 def result = project.exec {
                     workingDir project.projectDir
                     environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                    if (buildOnDocker) {
-                        createDockerEnvFile("$project.projectDir/docker.env")
-                        def balPackWithDocker = """
-                            docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
-                                -v $parentDirectory:/home/ballerina/$parentDirectory.name \
-                                -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
-                                ballerina/ballerina:$ballerinaDockerTag \
-                                /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
-                                bal pack --target-dir ${balBuildTarget}"
-                        """
+                    if (ballerinaExtension.isConnector) {
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            println "Executing command on windows: ${balPackWithDocker}"
-//                            commandLine 'cmd', '/c', "$balPackWithDocker && exit %%ERRORLEVEL%%"
-                            def cmdStr = """
-                                docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
-                                alpine:latest \
-                                /bin/sh -c "ls -al"
-                            """
-                            commandLine 'cmd', '/c', "$balPackWithDocker && exit %%ERRORLEVEL%%"
+                            commandLine 'cmd', '/c', "bal.bat pack --target-dir ${balBuildTarget} && exit %%ERRORLEVEL%%"
                         } else {
-                            commandLine 'sh', '-c', "$balPackWithDocker"
+                            commandLine 'sh', '-c', "bal pack --target-dir ${balBuildTarget}"
                         }
                     } else {
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
@@ -328,19 +342,11 @@ class BallerinaPlugin implements Plugin<Project> {
                         project.exec {
                             workingDir project.projectDir
                             environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                            if (buildOnDocker) {
-                                def balPushWithDocker = """
-                                    docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
-                                        -v $parentDirectory:/home/ballerina/$parentDirectory.name \
-                                        -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
-                                        ballerina/ballerina:$ballerinaDockerTag \
-                                        /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
-                                        bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala"
-                                """
+                            if (ballerinaExtension.isConnector) {
                                 if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                    commandLine 'cmd', '/c', "$balPushWithDocker && exit %%ERRORLEVEL%%"
+                                    commandLine 'cmd', '/c', "bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala && exit %%ERRORLEVEL%%"
                                 } else {
-                                    commandLine 'sh', '-c', "$balPushWithDocker"
+                                    commandLine 'sh', '-c', "bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala"
                                 }
                             } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                                 commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala && exit %%ERRORLEVEL%%"
@@ -356,23 +362,20 @@ class BallerinaPlugin implements Plugin<Project> {
                     project.exec {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                        if (!ballerinaExtension.isConnector) {
+                        if (ballerinaExtension.isConnector) {
+                            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                                commandLine 'cmd', '/c', "bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local && exit %%ERRORLEVEL%%"
+                            } else {
+                                commandLine 'sh', '-c', "bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local"
+                            }
+                        } else {
                             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                                 commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local && exit %%ERRORLEVEL%%"
                             } else {
                                 commandLine 'sh', '-c', "$distributionBinPath/bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local"
                             }
-                        } else {
-                            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                commandLine 'cmd', '/c', "bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local && exit %%ERRORLEVEL%%"
-                            } else {
-                                commandLine 'sh', '-c', "bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local"
-                            } 
                         }
                     }
-                }
-                if (buildOnDocker) {
-                    deleteFile("$project.projectDir/docker.env")
                 }
             }
             outputs.dir balaArtifact
@@ -384,7 +387,7 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.tasks.register('test') {
-            dependsOn(project.initializeVariables)
+            dependsOn(project.verifyLocalBalVersion)
             dependsOn(project.updateTomlFiles)
             finalizedBy(project.commitTomlFiles)
             doLast {
@@ -392,20 +395,11 @@ class BallerinaPlugin implements Plugin<Project> {
                 project.exec {
                     workingDir project.projectDir
                     environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                    if (buildOnDocker) {
-                        createDockerEnvFile("$project.projectDir/docker.env")
-                        def balTestWithDocker = """
-                            docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
-                                -v $parentDirectory:/home/ballerina/$parentDirectory.name \
-                                -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
-                                ballerina/ballerina:$ballerinaDockerTag \
-                                /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
-                                $balJavaDebugParam bal test ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
-                        """
+                    if (ballerinaExtension.isConnector) {
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "$balTestWithDocker && exit %%ERRORLEVEL%%"
+                            commandLine 'cmd', '/c', "bal.bat test --offline ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
                         } else {
-                            commandLine 'sh', '-c', "$balTestWithDocker"
+                            commandLine 'sh', '-c', "bal test --offline ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                         }
                     } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                         commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat test --offline ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
@@ -414,69 +408,13 @@ class BallerinaPlugin implements Plugin<Project> {
                     }
 
                 }
-                if (buildOnDocker) {
-                    deleteFile("$project.projectDir/docker.env")
-                }
             }
         }
 
         project.tasks.register('clean', Delete.class) {
-            if (buildOnDocker) {
-                project.exec {
-                    def deleteUsingDocker = """
-                        docker run -u root \
-                        -v $parentDirectory:/home/ballerina/$parentDirectory.name \
-                        ballerina/ballerina:$ballerinaDockerTag \
-                        /bin/sh -c "find /home/ballerina/$parentDirectory.name -type d -name 'build' -exec rm -rf {} + && find /home/ballerina/$parentDirectory.name -type d -name 'target' -exec rm -rf {} +"
-                    """
-                    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                        commandLine 'cmd', '/c', "$deleteUsingDocker && exit %%ERRORLEVEL%%"
-                    } else {
-                        commandLine 'sh', '-c', "$deleteUsingDocker"
-                    }
-                }
-            } else {
-                delete "$project.projectDir/target"
-                delete "$project.projectDir/build"
-            }
+            delete "$project.projectDir/target"
+            delete "$project.projectDir/build"
             delete "$project.rootDir/target"
         }
-    }
-
-    static void createDockerEnvFile(String dockerEnvFilePath) {
-        def dockerEnvFileWriter = new PrintWriter("$dockerEnvFilePath", "UTF-8")
-        def excludedVariables = ["PATH", "JAVA_HOME", "HOME"]
-        def envVariables = System.getenv()
-        envVariables.each { key, value ->
-            if (!excludedVariables.contains(key) && !key.startsWith("=")) {
-                dockerEnvFileWriter.println("$key=$value")
-            }
-        }
-        dockerEnvFileWriter.close()
-    }
-
-    static void deleteFile(String filePath) {
-        def file = new File(filePath)
-        if (file.exists() && !file.delete()) {
-            println("Failed to delete $filePath.")
-        }
-    }
-
-    static String getDockerImageTag(Project project) {
-        def ballerinaDockerTag = project.findProperty('ballerinaLangVersion')
-        if (project.hasProperty('buildUsingDocker')) {
-            ballerinaDockerTag = project.findProperty('buildUsingDocker')
-            if (ballerinaDockerTag == '') {
-                return 'nightly'
-            }
-        }
-        if (isTimeStampVersion(ballerinaDockerTag)) {
-            return 'nightly'
-        }
-        return ballerinaDockerTag
-    }
-
-    static boolean isTimeStampVersion(String version) {
-        return version.trim().split("-").length > 1
     }
 }
