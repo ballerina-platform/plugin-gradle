@@ -231,7 +231,7 @@ class BallerinaPlugin implements Plugin<Project> {
             def error = new ByteArrayOutputStream()
 
             try {
-                exec {
+                project.exec {
                     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                         commandLine 'cmd', '/c', "bal.bat -v"
                     } else {
