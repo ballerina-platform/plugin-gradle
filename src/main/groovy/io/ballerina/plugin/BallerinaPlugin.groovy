@@ -295,7 +295,7 @@ class BallerinaPlugin implements Plugin<Project> {
                 }
 
                 // Pack bala first
-                def result = project.exec {
+                project.exec {
                     workingDir project.projectDir
                     environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                     if (ballerinaExtension.isConnector) {
@@ -312,17 +312,9 @@ class BallerinaPlugin implements Plugin<Project> {
                         }
                     }
                 }
-                result.wait(50000)
-
-                def balaPath = "$project.projectDir/${balBuildTarget}/bala"
-                def balaDir = new File(balaPath)
-                if (!balaDir.exists()) {
-                    throw new FileNotFoundException(
-                            "[Error] 'bala' directory does not exist: ${balaPath}, hence exiting")
-                }
 
                 // extract bala file to balaArtifact
-                balaDir.eachFileMatch(~/.*.bala/) { balaFile ->
+                new File("$project.projectDir/${balBuildTarget}/bala").eachFileMatch(~/.*.bala/) { balaFile ->
                     project.copy {
                         from project.zipTree(balaFile)
                         into new File("$balaArtifact/bala/${packageOrg}/${packageName}/${balaVersion}/${platform}")
