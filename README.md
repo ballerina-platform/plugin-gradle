@@ -56,3 +56,39 @@ The Ballerina Gradle plugin is used to build Ballerina modules using Gradle. Thi
     testCoverageParam = "--code-coverage --coverage-format=xml"
   }
   ```
+
+## Build from the source
+
+Download and install Java SE Development Kit (JDK) version 17. You can download it from either of the following sources:
+
+  * [Oracle JDK](https://www.oracle.com/java/technologies/downloads/)
+  * [OpenJDK](https://adoptium.net/)
+
+   > **Note:** After installation, remember to set the `JAVA_HOME` environment variable to the directory where JDK was installed.
+
+### Build options
+
+Execute the commands below to build from the source.
+
+1. To build the package:
+
+   ```bash
+   ./gradlew clean build
+   ```
+
+2. To publish to maven local:
+
+   ```bash
+   ./gradlew clean build publishToMavenLocal
+   ```
+
+### Debug options
+
+To debug the Ballerina gradle plugin against a Ballerina library package build use the following command to build the library:
+
+   ```bash
+   ./gradlew clean build -Dorg.gradle.debug=true
+   ```
+
+This would start a debug process on port `5005` and the developer can configure the remote debug for the Ballerina 
+gradle plugin for this port. 
