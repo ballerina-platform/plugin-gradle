@@ -44,7 +44,7 @@ class BallerinaPlugin implements Plugin<Project> {
         def ballerinaExtension = project.extensions.create('ballerina', BallerinaExtension)
 
         def packageOrg = ''
-        def platform = 'java17'
+        def platform = 'java21'
         def tomlVersion
         def balBuildTarget = 'build/bal_build_target'
         def balaArtifact = new File("$project.projectDir/build/bala_unzipped/")
@@ -350,7 +350,7 @@ class BallerinaPlugin implements Plugin<Project> {
                                 commandLine 'cmd', '/c', "bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local && exit %%ERRORLEVEL%%"
                             } else {
                                 commandLine 'sh', '-c', "bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local"
-                            } 
+                            }
                         }
                     }
                 }
