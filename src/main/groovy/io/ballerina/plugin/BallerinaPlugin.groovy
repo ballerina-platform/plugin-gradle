@@ -284,9 +284,9 @@ class BallerinaPlugin implements Plugin<Project> {
                         }
                     } else {
                         if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                            commandLine 'cmd', '/c', "$distributionBinPath/bal.bat pack --target-dir ${balBuildTarget} --offline && exit %%ERRORLEVEL%%"
+                            commandLine 'cmd', '/c', "$distributionBinPath/bal.bat pack --target-dir ${balBuildTarget} --sticky && exit %%ERRORLEVEL%%"
                         } else {
-                            commandLine 'sh', '-c', "$distributionBinPath/bal pack --target-dir ${balBuildTarget} --offline"
+                            commandLine 'sh', '-c', "$distributionBinPath/bal pack --target-dir ${balBuildTarget} --sticky"
                         }
                     }
                 }
@@ -391,9 +391,9 @@ class BallerinaPlugin implements Plugin<Project> {
                             commandLine 'sh', '-c', "$balTestWithDocker"
                         }
                     } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                        commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat test --offline ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
+                        commandLine 'cmd', '/c', "$balJavaDebugParam $distributionBinPath/bal.bat test --sticky ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams} && exit %%ERRORLEVEL%%"
                     } else {
-                        commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal test --offline ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
+                        commandLine 'sh', '-c', "$balJavaDebugParam $distributionBinPath/bal test --sticky ${graalvmFlag} ${parallelTestFlag} ${testCoverageParams} ${groupParams} ${disableGroups} ${debugParams}"
                     }
 
                 }
