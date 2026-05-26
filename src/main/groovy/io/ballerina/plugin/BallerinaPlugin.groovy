@@ -25,6 +25,9 @@ import org.gradle.api.file.RelativePath
 import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.Delete
 import org.gradle.api.tasks.bundling.Zip
+import org.gradle.process.ExecOperations
+
+import javax.inject.Inject
 
 class BallerinaExtension {
 
@@ -34,10 +37,17 @@ class BallerinaExtension {
     String packageOrganization
     String customTomlVersion
     String platform
-    boolean isConnector = false
+    boolean connector = false
 }
 
 class BallerinaPlugin implements Plugin<Project> {
+
+    private final ExecOperations execOperations
+
+    @Inject
+    BallerinaPlugin(ExecOperations execOperations) {
+        this.execOperations = execOperations
+    }
 
     @Override
     void apply(Project project) {
@@ -117,7 +127,7 @@ class BallerinaPlugin implements Plugin<Project> {
                     project.configurations.jbalTools.resolvedConfiguration.resolvedArtifacts.each { artifact ->
                         project.copy {
                             from project.zipTree(artifact.getFile())
-                            into new File("${project.buildDir}/")
+                            into project.layout.buildDirectory.get().asFile
                         }
 
                         project.copy {
@@ -143,7 +153,7 @@ class BallerinaPlugin implements Plugin<Project> {
                     project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
                         project.copy {
                             from project.zipTree(artifact.getFile())
-                            into new File("${project.buildDir}/extracted-stdlibs", artifact.name + '-zip')
+                            into new File(project.layout.buildDirectory.dir("extracted-stdlibs").get().asFile, artifact.name + '-zip')
                         }
                     }
                 }
@@ -158,7 +168,7 @@ class BallerinaPlugin implements Plugin<Project> {
                 doLast {
                     /* Standard Libraries */
                     project.configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-                        def artifactExtractedPath = "${project.buildDir}/extracted-stdlibs/" + artifact.name + '-zip'
+                        def artifactExtractedPath = project.layout.buildDirectory.dir("extracted-stdlibs").get().asFile.path + "/" + artifact.name + '-zip'
                         project.copy {
                             def ballerinaDist = "build/jballerina-tools-${ballerinaExtension.langVersion}"
                             into ballerinaDist
@@ -185,7 +195,7 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.tasks.register('initializeVariables') {
-            if (ballerinaExtension.isConnector || project.hasProperty('buildUsingDocker')) {
+            if (ballerinaExtension.connector || project.hasProperty('buildUsingDocker')) {
                 buildOnDocker = true
                 ballerinaDockerTag = getDockerImageTag(project)
                 println("[Info] project builds on docker")
@@ -224,7 +234,7 @@ class BallerinaPlugin implements Plugin<Project> {
             if (project.hasProperty('balParallelTest')) {
                 parallelTestFlag = '--parallel'
             }
-            if (!ballerinaExtension.isConnector) {
+            if (!ballerinaExtension.connector) {
                 distributionBinPath = project.projectDir.absolutePath + "/build/jballerina-tools-${ballerinaExtension.langVersion}/bin"
             }
 
@@ -264,7 +274,7 @@ class BallerinaPlugin implements Plugin<Project> {
                     packageOrg = ballerinaExtension.packageOrganization
                 }
                 // Pack bala first
-                project.exec {
+                execOperations.exec {
                     workingDir project.projectDir
                     environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                     if (buildOnDocker) {
@@ -308,7 +318,7 @@ class BallerinaPlugin implements Plugin<Project> {
                         return
                     }
                     if (ballerinaCentralAccessToken != null) {
-                        project.exec {
+                        execOperations.exec {
                             workingDir project.projectDir
                             environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                             if (buildOnDocker) {
@@ -336,10 +346,10 @@ class BallerinaPlugin implements Plugin<Project> {
                     }
                 } else if (needPublishToLocalCentral) {
                     println("[Info] Publishing to the ballerina local central repository")
-                    project.exec {
+                    execOperations.exec {
                         workingDir project.projectDir
                         environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
-                        if (!ballerinaExtension.isConnector) {
+                        if (!ballerinaExtension.connector) {
                             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                                 commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala --repository=local && exit %%ERRORLEVEL%%"
                             } else {
@@ -362,7 +372,7 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         project.tasks.register('createArtifactZip', Zip.class) {
-            destinationDirectory = new File("$project.buildDir/distributions")
+            destinationDirectory = project.layout.buildDirectory.dir("distributions").get().asFile
             from project.build
         }
 
@@ -372,7 +382,7 @@ class BallerinaPlugin implements Plugin<Project> {
             finalizedBy(project.commitTomlFiles)
             doLast {
                 // Run tests
-                project.exec {
+                execOperations.exec {
                     workingDir project.projectDir
                     environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                     if (buildOnDocker) {
@@ -405,7 +415,7 @@ class BallerinaPlugin implements Plugin<Project> {
 
         project.tasks.register('clean', Delete.class) {
             if (buildOnDocker) {
-                project.exec {
+                execOperations.exec {
                     def deleteUsingDocker = """
                         docker run -u root \
                         -v $parentDirectory:/home/ballerina/$parentDirectory.name \
