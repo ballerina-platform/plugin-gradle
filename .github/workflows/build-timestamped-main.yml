@@ -1,4 +1,4 @@
-name: Build main branch
+name: Build timestamped version
 
 on:
   push:
