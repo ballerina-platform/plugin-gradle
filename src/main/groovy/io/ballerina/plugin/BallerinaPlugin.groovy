@@ -194,6 +194,42 @@ class BallerinaPlugin implements Plugin<Project> {
             }
         }
 
+        project.tasks.register('updateTomlFiles') {
+            dependsOn(project.copyStdlibs)
+            doLast {
+                def ballerinaTomlFile = new File("$project.projectDir/Ballerina.toml")
+                def ballerinaTomlTemplate = new File("${project.rootDir}/build-config/resources/Ballerina.toml")
+                def newBallerinaToml = ballerinaTomlTemplate.text.replace('@project.version@', project.version.toString())
+                newBallerinaToml = newBallerinaToml.replace('@toml.version@', tomlVersion)
+                ballerinaTomlFile.text = newBallerinaToml
+
+                def compilerPluginTomlTemplate = new File("${project.rootDir}/build-config/resources/CompilerPlugin.toml")
+                if (compilerPluginTomlTemplate.exists()) {
+                    def compilerPluginTomlFile = new File("$project.projectDir/CompilerPlugin.toml")
+                    compilerPluginTomlFile.text = compilerPluginTomlTemplate.text.replace('@project.version@', project.version.toString())
+                }
+            }
+        }
+
+        project.tasks.register('commitTomlFiles') {
+            doLast {
+                def filesToCommit = ['Ballerina.toml', 'Dependencies.toml']
+                if (new File("$project.projectDir/CompilerPlugin.toml").exists()) {
+                    filesToCommit.add('CompilerPlugin.toml')
+                }
+                execOperations.exec {
+                    workingDir project.projectDir
+                    ignoreExitValue true
+                    def commitMessage = '[Automated] Update the toml files'
+                    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                        commandLine 'cmd', '/c', "git commit -m \"$commitMessage\" ${filesToCommit.join(' ')}"
+                    } else {
+                        commandLine 'sh', '-c', "git commit -m '$commitMessage' ${filesToCommit.join(' ')}"
+                    }
+                }
+            }
+        }
+
         project.tasks.register('initializeVariables') {
             if (ballerinaExtension.connector || project.hasProperty('buildUsingDocker')) {
                 buildOnDocker = true

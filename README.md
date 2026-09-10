@@ -57,6 +57,15 @@ The Ballerina Gradle plugin is used to build Ballerina modules using Gradle. Thi
   }
   ```
 
+## Toml file management
+
+The plugin provides `updateTomlFiles` and `commitTomlFiles` tasks, wired into `build` and `test` (`dependsOn updateTomlFiles`, `finalizedBy commitTomlFiles`). Consumers no longer need to declare these tasks themselves.
+
+* `updateTomlFiles` templates `build-config/resources/Ballerina.toml` (substituting `@project.version@` and `@toml.version@`) into the submodule's `Ballerina.toml`. If `build-config/resources/CompilerPlugin.toml` also exists, it is templated (substituting `@project.version@`) into `CompilerPlugin.toml`.
+* `commitTomlFiles` commits `Ballerina.toml`, `Dependencies.toml`, and `CompilerPlugin.toml` (if present) with the message `[Automated] Update the toml files`.
+
+>**Breaking change:** if your `build.gradle` still declares local `task updateTomlFiles { ... }` / `task commitTomlFiles { ... }` tasks (or an `ExecOperations`-injection helper such as `BallerinaExecHelper`), remove them before upgrading — otherwise the build fails with a duplicate-task-name error. This migration only covers `Ballerina.toml`/`CompilerPlugin.toml` templates that use no placeholders beyond `@project.version@`/`@toml.version@`; modules with additional module-specific placeholders (e.g. native dependency versions) must keep their local tasks for now. See `CHANGELOG.md`.
+
 ## Build from the source
 
 Download and install Java SE Development Kit (JDK) version 17. You can download it from either of the following sources:
