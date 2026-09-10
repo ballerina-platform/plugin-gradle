@@ -1,9 +1,10 @@
-name: Build main branch
+name: Build timestamped version
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   publish:
