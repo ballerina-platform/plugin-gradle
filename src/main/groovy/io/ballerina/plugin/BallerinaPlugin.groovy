@@ -247,7 +247,7 @@ class BallerinaPlugin implements Plugin<Project> {
             }
         }
 
-        project.tasks.register('build') {
+        def buildTaskConfig = {
             dependsOn(project.initializeVariables)
             dependsOn(project.updateTomlFiles)
             finalizedBy(project.commitTomlFiles)
@@ -370,6 +370,15 @@ class BallerinaPlugin implements Plugin<Project> {
             }
             outputs.dir balaArtifact
         }
+        if (project.tasks.names.contains('build')) {
+            // Another plugin applied to this same project (e.g. net.researchgate.release, via its
+            // own application of Gradle's BasePlugin) may have already registered the lifecycle
+            // 'build' task. Configure that existing task instead of registering a duplicate, which
+            // would otherwise fail with "Cannot add task 'build' as a task with that name already exists."
+            project.tasks.named('build', buildTaskConfig)
+        } else {
+            project.tasks.register('build', buildTaskConfig)
+        }
 
         project.tasks.register('createArtifactZip', Zip.class) {
             destinationDirectory = project.layout.buildDirectory.dir("distributions").get().asFile
@@ -413,7 +422,7 @@ class BallerinaPlugin implements Plugin<Project> {
             }
         }
 
-        project.tasks.register('clean', Delete.class) {
+        def cleanTaskConfig = {
             if (buildOnDocker) {
                 execOperations.exec {
                     def deleteUsingDocker = """
@@ -433,6 +442,13 @@ class BallerinaPlugin implements Plugin<Project> {
                 delete "$project.projectDir/build"
             }
             delete "$project.rootDir/target"
+        }
+        if (project.tasks.names.contains('clean')) {
+            // See the 'build' task above for why this guard is needed: another plugin applied to
+            // this same project may have already registered the lifecycle 'clean' task.
+            project.tasks.named('clean', cleanTaskConfig)
+        } else {
+            project.tasks.register('clean', Delete.class, cleanTaskConfig)
         }
     }
 
