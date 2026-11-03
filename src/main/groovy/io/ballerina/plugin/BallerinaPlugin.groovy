@@ -68,6 +68,7 @@ class BallerinaPlugin implements Plugin<Project> {
         def testCoverageParams = ''
         def needPublishToCentral = false
         def needPublishToLocalCentral = false
+        def needSigstoreSign = false
         def graalvmFlag = ''
         def parallelTestFlag = ''
         def buildOnDocker = false
@@ -227,6 +228,9 @@ class BallerinaPlugin implements Plugin<Project> {
             if (project.hasProperty('publishToCentral') && (project.findProperty('publishToCentral') == 'true')) {
                 needPublishToCentral = true
             }
+            if (project.hasProperty('sigstoreSign') && (project.findProperty('sigstoreSign') == 'true')) {
+                needSigstoreSign = true
+            }
             if (project.hasProperty('balGraalVMTest')) {
                 println("[Warning] disabled code coverage: running GraalVM tests")
                 graalvmFlag = '--graalvm'
@@ -318,6 +322,20 @@ class BallerinaPlugin implements Plugin<Project> {
                         return
                     }
                     if (ballerinaCentralAccessToken != null) {
+                        def balaFileName = "${packageOrg}-${packageName}-${platform}-${balaVersion}.bala"
+                        def copyBundleInDocker = ''
+                        if (needSigstoreSign) {
+                            def bundle = signBala(project, "$project.projectDir/${balBuildTarget}/bala/${balaFileName}")
+                            if (bundle != null && buildOnDocker) {
+                                // The bala directory is owned by the container's root user
+                                copyBundleInDocker = "cp build/sigstore/${bundle.name} ${balBuildTarget}/bala/ && "
+                            } else if (bundle != null) {
+                                project.copy {
+                                    from bundle
+                                    into "$project.projectDir/${balBuildTarget}/bala"
+                                }
+                            }
+                        }
                         execOperations.exec {
                             workingDir project.projectDir
                             environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
@@ -328,7 +346,7 @@ class BallerinaPlugin implements Plugin<Project> {
                                         -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
                                         ballerina/ballerina:$ballerinaDockerTag \
                                         /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
-                                        bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala"
+                                        ${copyBundleInDocker}bal push ${balBuildTarget}/bala/${balaFileName}"
                                 """
                                 if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                                     commandLine 'cmd', '/c', "$balPushWithDocker && exit %%ERRORLEVEL%%"
@@ -446,6 +464,29 @@ class BallerinaPlugin implements Plugin<Project> {
             }
         }
         dockerEnvFileWriter.close()
+    }
+
+    // Signs the bala keyless with cosign; returns the bundle, or null to push the bala unsigned
+    File signBala(Project project, String balaPath) {
+        def bundleDir = new File("$project.projectDir/build/sigstore")
+        bundleDir.mkdirs()
+        def bundle = new File(bundleDir, new File(balaPath).name + '.sigstore.json')
+        deleteFile(bundle.path)
+        def exitValue
+        try {
+            exitValue = execOperations.exec {
+                commandLine 'cosign', 'sign-blob', '--yes', '--new-bundle-format', '--bundle', bundle.path, balaPath
+                ignoreExitValue = true
+            }.exitValue
+        } catch (Exception e) {
+            println("[Warning] Unable to run cosign: ${e.message}")
+            exitValue = -1
+        }
+        if (exitValue != 0 || !bundle.exists()) {
+            println("[Warning] Sigstore signing failed: pushing ${new File(balaPath).name} unsigned")
+            return null
+        }
+        return bundle
     }
 
     static void deleteFile(String filePath) {
