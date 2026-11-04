@@ -18,6 +18,7 @@
 package io.ballerina.plugin
 
 import org.apache.tools.ant.taskdefs.condition.Os
+import org.apache.tools.ant.util.TeeOutputStream
 import org.gradle.api.InvalidUserDataException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -324,8 +325,9 @@ class BallerinaPlugin implements Plugin<Project> {
                     if (ballerinaCentralAccessToken != null) {
                         def balaFileName = "${packageOrg}-${packageName}-${platform}-${balaVersion}.bala"
                         def copyBundleInDocker = ''
+                        def bundle = null
                         if (needSigstoreSign) {
-                            def bundle = signBala(project, "$project.projectDir/${balBuildTarget}/bala/${balaFileName}")
+                            bundle = signBala(project, "$project.projectDir/${balBuildTarget}/bala/${balaFileName}")
                             if (bundle != null && buildOnDocker) {
                                 // The bala directory is owned by the container's root user
                                 copyBundleInDocker = "cp build/sigstore/${bundle.name} ${balBuildTarget}/bala/ && "
@@ -336,9 +338,13 @@ class BallerinaPlugin implements Plugin<Project> {
                                 }
                             }
                         }
+                        def pushOutput = new ByteArrayOutputStream()
                         execOperations.exec {
                             workingDir project.projectDir
                             environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
+                            if (bundle != null) {
+                                standardOutput = new TeeOutputStream(System.out, pushOutput)
+                            }
                             if (buildOnDocker) {
                                 def balPushWithDocker = """
                                     docker run --env-file $project.projectDir/docker.env --rm --net=host -u root \
@@ -358,6 +364,9 @@ class BallerinaPlugin implements Plugin<Project> {
                             } else {
                                 commandLine 'sh', '-c', "$distributionBinPath/bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala"
                             }
+                        }
+                        if (bundle != null && !pushOutput.toString().contains('Attaching Sigstore bundle')) {
+                            println("[Warning] This bal push does not send Sigstore bundles: ${balaFileName} was pushed unsigned")
                         }
                     } else {
                         throw new InvalidUserDataException('Central Access Token is not present')
