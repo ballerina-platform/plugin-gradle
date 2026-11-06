@@ -324,14 +324,19 @@ class BallerinaPlugin implements Plugin<Project> {
                     }
                     if (ballerinaCentralAccessToken != null) {
                         def balaFileName = "${packageOrg}-${packageName}-${platform}-${balaVersion}.bala"
-                        def copyBundleInDocker = ''
-                        def bundle = null
-                        if (needSigstoreSign) {
-                            bundle = signBala(project, "$project.projectDir/${balBuildTarget}/bala/${balaFileName}")
-                            if (bundle != null && buildOnDocker) {
+                        def balaBundlePath = "${balBuildTarget}/bala/${balaFileName}.sigstore.json"
+                        def bundle = needSigstoreSign ?
+                                signBala(project, "$project.projectDir/${balBuildTarget}/bala/${balaFileName}") : null
+                        // Remove a bundle left by an earlier run so bal push never sends it with this bala
+                        def bundleSetupInDocker = "rm -f ${balaBundlePath}; "
+                        if (buildOnDocker) {
+                            if (bundle != null) {
                                 // The bala directory is owned by the container's root user
-                                copyBundleInDocker = "cp build/sigstore/${bundle.name} ${balBuildTarget}/bala/ && "
-                            } else if (bundle != null) {
+                                bundleSetupInDocker += "cp build/sigstore/${bundle.name} ${balBuildTarget}/bala/; "
+                            }
+                        } else {
+                            project.delete "$project.projectDir/${balaBundlePath}"
+                            if (bundle != null) {
                                 project.copy {
                                     from bundle
                                     into "$project.projectDir/${balBuildTarget}/bala"
@@ -344,6 +349,7 @@ class BallerinaPlugin implements Plugin<Project> {
                             environment 'JAVA_OPTS', '-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true'
                             if (bundle != null) {
                                 standardOutput = new TeeOutputStream(System.out, pushOutput)
+                                errorOutput = new TeeOutputStream(System.err, pushOutput)
                             }
                             if (buildOnDocker) {
                                 def balPushWithDocker = """
@@ -352,7 +358,7 @@ class BallerinaPlugin implements Plugin<Project> {
                                         -v $projectDirectory:/home/ballerina/$parentDirectory.name/$projectDirectory.name \
                                         ballerina/ballerina:$ballerinaDockerTag \
                                         /bin/sh -c "cd $parentDirectory.name/$projectDirectory.name && \
-                                        ${copyBundleInDocker}bal push ${balBuildTarget}/bala/${balaFileName}"
+                                        ${bundleSetupInDocker}bal push ${balBuildTarget}/bala/${balaFileName}"
                                 """
                                 if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                                     commandLine 'cmd', '/c', "$balPushWithDocker && exit %%ERRORLEVEL%%"
@@ -360,11 +366,12 @@ class BallerinaPlugin implements Plugin<Project> {
                                     commandLine 'sh', '-c', "$balPushWithDocker"
                                 }
                             } else if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                                commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala && exit %%ERRORLEVEL%%"
+                                commandLine 'cmd', '/c', "$distributionBinPath/bal.bat push ${balBuildTarget}/bala/${balaFileName} && exit %%ERRORLEVEL%%"
                             } else {
-                                commandLine 'sh', '-c', "$distributionBinPath/bal push ${balBuildTarget}/bala/${packageOrg}-${packageName}-${platform}-${balaVersion}.bala"
+                                commandLine 'sh', '-c', "$distributionBinPath/bal push ${balBuildTarget}/bala/${balaFileName}"
                             }
                         }
+                        // bal push prints this when it sends the bundle next to the bala
                         if (bundle != null && !pushOutput.toString().contains('Attaching Sigstore bundle')) {
                             println("[Warning] This bal push does not send Sigstore bundles: ${balaFileName} was pushed unsigned")
                         }
@@ -481,6 +488,11 @@ class BallerinaPlugin implements Plugin<Project> {
         bundleDir.mkdirs()
         def bundle = new File(bundleDir, new File(balaPath).name + '.sigstore.json')
         deleteFile(bundle.path)
+        // Without an ambient identity token, cosign waits for an interactive browser login
+        if (System.getenv('ACTIONS_ID_TOKEN_REQUEST_URL') == null && System.getenv('SIGSTORE_ID_TOKEN') == null) {
+            println("[Warning] No OIDC identity token for Sigstore signing: pushing ${new File(balaPath).name} unsigned")
+            return null
+        }
         def exitValue
         try {
             exitValue = execOperations.exec {
