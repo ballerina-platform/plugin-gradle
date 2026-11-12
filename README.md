@@ -57,6 +57,16 @@ The Ballerina Gradle plugin is used to build Ballerina modules using Gradle. Thi
   }
   ```
 
+### Sign with Sigstore
+
+Pass `-PsigstoreSign=true` with `-PpublishToCentral=true` to sign the bala keyless with [cosign](https://github.com/sigstore/cosign) and push the Sigstore bundle with it. This needs:
+
+* `cosign` on the `PATH`.
+* An OIDC identity token: a GitHub Actions job with `id-token: write`, or a token in `SIGSTORE_ID_TOKEN`.
+* A `bal` version whose `bal push` sends a `<bala>.sigstore.json` bundle placed next to the bala.
+
+If any of these is missing, or signing fails, the build prints a warning and pushes the bala unsigned.
+
 ## Build from the source
 
 Download and install Java SE Development Kit (JDK) version 17. You can download it from either of the following sources:
