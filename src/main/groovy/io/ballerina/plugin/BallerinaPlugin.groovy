@@ -489,7 +489,8 @@ class BallerinaPlugin implements Plugin<Project> {
         def bundle = new File(bundleDir, new File(balaPath).name + '.sigstore.json')
         deleteFile(bundle.path)
         // Without an ambient identity token, cosign waits for an interactive browser login
-        if (System.getenv('ACTIONS_ID_TOKEN_REQUEST_URL') == null && System.getenv('SIGSTORE_ID_TOKEN') == null) {
+        def githubOidc = System.getenv('ACTIONS_ID_TOKEN_REQUEST_URL') && System.getenv('ACTIONS_ID_TOKEN_REQUEST_TOKEN')
+        if (!githubOidc && !System.getenv('SIGSTORE_ID_TOKEN')) {
             println("[Warning] No OIDC identity token for Sigstore signing: pushing ${new File(balaPath).name} unsigned")
             return null
         }
