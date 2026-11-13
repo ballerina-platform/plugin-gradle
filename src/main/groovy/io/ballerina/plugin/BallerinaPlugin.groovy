@@ -248,10 +248,13 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         def buildTaskConfig = {
-            dependsOn(project.initializeVariables)
-            dependsOn(project.updateTomlFiles)
-            finalizedBy(project.commitTomlFiles)
-            dependsOn(project.test)
+            // Reference the other tasks by name so that they are resolved lazily. An existing 'build' task
+            // may be realized before 'test' or 'updateTomlFiles' are registered, and a property lookup
+            // such as project.test would then fail while applying the plugin.
+            dependsOn('initializeVariables')
+            dependsOn('updateTomlFiles')
+            finalizedBy('commitTomlFiles')
+            dependsOn('test')
             doNotTrackState("build needs to run every time")
 
             inputs.dir projectDirectory
@@ -422,7 +425,7 @@ class BallerinaPlugin implements Plugin<Project> {
             }
         }
 
-        def cleanTaskConfig = {
+        def cleanTaskConfig = { org.gradle.api.Task cleanTask ->
             if (buildOnDocker) {
                 execOperations.exec {
                     def deleteUsingDocker = """
@@ -437,16 +440,22 @@ class BallerinaPlugin implements Plugin<Project> {
                         commandLine 'sh', '-c', "$deleteUsingDocker"
                     }
                 }
-            } else {
-                delete "$project.projectDir/target"
-                delete "$project.projectDir/build"
             }
-            delete "$project.rootDir/target"
+            def cleanTargets = buildOnDocker ? [] : ["$project.projectDir/target", "$project.projectDir/build"]
+            cleanTargets << "$project.rootDir/target"
+            if (cleanTask instanceof Delete) {
+                cleanTask.delete(cleanTargets)
+            } else {
+                // A 'clean' task registered by another plugin or script may not be a Delete task.
+                cleanTask.doLast {
+                    project.delete(cleanTargets)
+                }
+            }
         }
         if (project.tasks.names.contains('clean')) {
             // See the 'build' task above for why this guard is needed: another plugin applied to
             // this same project may have already registered the lifecycle 'clean' task.
-            project.tasks.named('clean', Delete, cleanTaskConfig)
+            project.tasks.named('clean').configure { org.gradle.api.Task existingClean -> cleanTaskConfig.call(existingClean) }
         } else {
             project.tasks.register('clean', Delete.class, cleanTaskConfig)
         }
