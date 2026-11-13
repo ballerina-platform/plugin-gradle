@@ -375,7 +375,7 @@ class BallerinaPlugin implements Plugin<Project> {
             // own application of Gradle's BasePlugin) may have already registered the lifecycle
             // 'build' task. Configure that existing task instead of registering a duplicate, which
             // would otherwise fail with "Cannot add task 'build' as a task with that name already exists."
-            project.tasks.named('build', buildTaskConfig)
+            project.tasks.named('build').configure { org.gradle.api.Task existingBuild -> existingBuild.with(buildTaskConfig) }
         } else {
             project.tasks.register('build', buildTaskConfig)
         }
@@ -446,7 +446,7 @@ class BallerinaPlugin implements Plugin<Project> {
         if (project.tasks.names.contains('clean')) {
             // See the 'build' task above for why this guard is needed: another plugin applied to
             // this same project may have already registered the lifecycle 'clean' task.
-            project.tasks.named('clean', cleanTaskConfig)
+            project.tasks.named('clean', Delete, cleanTaskConfig)
         } else {
             project.tasks.register('clean', Delete.class, cleanTaskConfig)
         }
