@@ -426,18 +426,22 @@ class BallerinaPlugin implements Plugin<Project> {
         }
 
         def cleanTaskConfig = { org.gradle.api.Task cleanTask ->
-            if (buildOnDocker) {
-                execOperations.exec {
-                    def deleteUsingDocker = """
-                        docker run -u root \
-                        -v $parentDirectory:/home/ballerina/$parentDirectory.name \
-                        ballerina/ballerina:$ballerinaDockerTag \
-                        /bin/sh -c "find /home/ballerina/$parentDirectory.name -type d -name 'build' -exec rm -rf {} + && find /home/ballerina/$parentDirectory.name -type d -name 'target' -exec rm -rf {} +"
-                    """
-                    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                        commandLine 'cmd', '/c', "$deleteUsingDocker && exit %%ERRORLEVEL%%"
-                    } else {
-                        commandLine 'sh', '-c', "$deleteUsingDocker"
+            // Run the docker cleanup when the task executes, not while it is configured. An existing 'clean' task
+            // (e.g. from Gradle's BasePlugin) is realized on every build, so this must not run at configuration time.
+            cleanTask.doFirst {
+                if (buildOnDocker) {
+                    execOperations.exec {
+                        def deleteUsingDocker = """
+                            docker run -u root \
+                            -v $parentDirectory:/home/ballerina/$parentDirectory.name \
+                            ballerina/ballerina:$ballerinaDockerTag \
+                            /bin/sh -c "find /home/ballerina/$parentDirectory.name -type d -name 'build' -exec rm -rf {} + && find /home/ballerina/$parentDirectory.name -type d -name 'target' -exec rm -rf {} +"
+                        """
+                        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                            commandLine 'cmd', '/c', "$deleteUsingDocker && exit %%ERRORLEVEL%%"
+                        } else {
+                            commandLine 'sh', '-c', "$deleteUsingDocker"
+                        }
                     }
                 }
             }
