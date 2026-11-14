@@ -252,11 +252,14 @@ class BallerinaPlugin implements Plugin<Project> {
             }
         }
 
-        project.tasks.register('build') {
-            dependsOn(project.initializeVariables)
-            dependsOn(project.updateTomlFiles)
-            finalizedBy(project.commitTomlFiles)
-            dependsOn(project.test)
+        def buildTaskConfig = {
+            // Reference the other tasks by name so that they are resolved lazily. An existing 'build' task
+            // may be realized before 'test' or 'updateTomlFiles' are registered, and a property lookup
+            // such as project.test would then fail while applying the plugin.
+            dependsOn('initializeVariables')
+            dependsOn('updateTomlFiles')
+            finalizedBy('commitTomlFiles')
+            dependsOn('test')
             doNotTrackState("build needs to run every time")
 
             inputs.dir projectDirectory
@@ -404,6 +407,15 @@ class BallerinaPlugin implements Plugin<Project> {
             }
             outputs.dir balaArtifact
         }
+        if (project.tasks.names.contains('build')) {
+            // Another plugin applied to this same project (e.g. net.researchgate.release, via its
+            // own application of Gradle's BasePlugin) may have already registered the lifecycle
+            // 'build' task. Configure that existing task instead of registering a duplicate, which
+            // would otherwise fail with "Cannot add task 'build' as a task with that name already exists."
+            project.tasks.named('build').configure { org.gradle.api.Task existingBuild -> existingBuild.with(buildTaskConfig) }
+        } else {
+            project.tasks.register('build', buildTaskConfig)
+        }
 
         project.tasks.register('createArtifactZip', Zip.class) {
             destinationDirectory = project.layout.buildDirectory.dir("distributions").get().asFile
@@ -447,26 +459,43 @@ class BallerinaPlugin implements Plugin<Project> {
             }
         }
 
-        project.tasks.register('clean', Delete.class) {
-            if (buildOnDocker) {
-                execOperations.exec {
-                    def deleteUsingDocker = """
-                        docker run -u root \
-                        -v $parentDirectory:/home/ballerina/$parentDirectory.name \
-                        ballerina/ballerina:$ballerinaDockerTag \
-                        /bin/sh -c "find /home/ballerina/$parentDirectory.name -type d -name 'build' -exec rm -rf {} + && find /home/ballerina/$parentDirectory.name -type d -name 'target' -exec rm -rf {} +"
-                    """
-                    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                        commandLine 'cmd', '/c', "$deleteUsingDocker && exit %%ERRORLEVEL%%"
-                    } else {
-                        commandLine 'sh', '-c', "$deleteUsingDocker"
+        def cleanTaskConfig = { org.gradle.api.Task cleanTask ->
+            // Run the docker cleanup when the task executes, not while it is configured. An existing 'clean' task
+            // (e.g. from Gradle's BasePlugin) is realized on every build, so this must not run at configuration time.
+            cleanTask.doFirst {
+                if (buildOnDocker) {
+                    execOperations.exec {
+                        def deleteUsingDocker = """
+                            docker run -u root \
+                            -v $parentDirectory:/home/ballerina/$parentDirectory.name \
+                            ballerina/ballerina:$ballerinaDockerTag \
+                            /bin/sh -c "find /home/ballerina/$parentDirectory.name -type d -name 'build' -exec rm -rf {} + && find /home/ballerina/$parentDirectory.name -type d -name 'target' -exec rm -rf {} +"
+                        """
+                        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                            commandLine 'cmd', '/c', "$deleteUsingDocker && exit %%ERRORLEVEL%%"
+                        } else {
+                            commandLine 'sh', '-c', "$deleteUsingDocker"
+                        }
                     }
                 }
-            } else {
-                delete "$project.projectDir/target"
-                delete "$project.projectDir/build"
             }
-            delete "$project.rootDir/target"
+            def cleanTargets = buildOnDocker ? [] : ["$project.projectDir/target", "$project.projectDir/build"]
+            cleanTargets << "$project.rootDir/target"
+            if (cleanTask instanceof Delete) {
+                cleanTask.delete(cleanTargets)
+            } else {
+                // A 'clean' task registered by another plugin or script may not be a Delete task.
+                cleanTask.doLast {
+                    project.delete(cleanTargets)
+                }
+            }
+        }
+        if (project.tasks.names.contains('clean')) {
+            // See the 'build' task above for why this guard is needed: another plugin applied to
+            // this same project may have already registered the lifecycle 'clean' task.
+            project.tasks.named('clean').configure { org.gradle.api.Task existingClean -> cleanTaskConfig.call(existingClean) }
+        } else {
+            project.tasks.register('clean', Delete.class, cleanTaskConfig)
         }
     }
 
